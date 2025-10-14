@@ -1,0 +1,147 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #0b0b0d;
+  color: #f5f5f7;
+  padding: 1rem;
+  max-width: 700px;
+  margin: auto;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown-content {
+  position: absolute;
+  top: 2.5rem;
+  left: 0;
+  background: #131318;
+  color: white;
+  border-radius: 10px;
+  padding: 0.7rem;
+  border: 1px solid #333;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 250px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  z-index: 10;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  display: flex;
+}
+
+.dropdown-content.show {
+  max-height: 400px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.library-add input {
+  background: #1b1b1f;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 5px;
+  padding: 0.3rem;
+  width: 100%;
+}
+
+.library-add button {
+  background: #ff2b6a;
+  border: none;
+  border-radius: 5px;
+  color: white;
+  padding: 0.4rem;
+  cursor: pointer;
+  margin-top: 0.3rem;
+}
+
+#libraryList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid #444;
+  padding-top: 0.3rem;
+}
+
+#libraryList li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  background: #1b1b1f;
+  margin-bottom: 0.2rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+}
+
+#libraryList button {
+  background: none;
+  border: none;
+  color: #ff2b6a;
+  cursor: pointer;
+}
+
+/* === PRINT STYLES === */
+@media print {
+  body {
+    background: white;
+    color: black;
+    font-size: 22px;
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    text-align: left;
+  }
+  header, #totalTime, .delete, .song-order, select, button, input.song-time {
+    display: none !important;
+  }
+  #setlist {
+    list-style: none;
+    padding: 0;
+    margin-top: 1rem;
+    columns: 2;
+    column-gap: 3rem;
+  }
+  #setlist li {
+    border: none;
+    padding: 0.4rem 0;
+    font-weight: bold;
+    font-size: 1.2em;
+    break-inside: avoid;
+  }
+}
+
+.edit-input {
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  margin-right: 0.3rem;
+  width: 100px;
+}
+
+.time-input {
+  width: 60px;
+}
+
+#libraryList li {
+  align-items: center;
+  gap: 0.3rem;
+}
+
+#libraryList button {
+  cursor: pointer;
+  font-size: 0.9rem;
+}

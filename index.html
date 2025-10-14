@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SETLIST</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Band Setlist</h1>
+    <button id="addSongBtn">＋ Add Song</button>
+    <select id="savedSongs"></select>
+
+    <div class="dropdown">
+      <button id="libraryToggle">🎵 Library ▸</button>
+      <div id="libraryMenu" class="dropdown-content">
+        <div class="library-add">
+          <input type="text" id="libSongName" placeholder="Song name" />
+          <input type="text" id="libSongTime" placeholder="03:00" />
+          <button id="saveToLibrary">Add</button>
+        </div>
+        <ul id="libraryList"></ul>
+      </div>
+    </div>
+
+    <button id="printBtn">🖨️ Print</button>
+    <button id="shareBtn">🔗 Share</button>
+    <button id="clearAllBtn">🧹 Clear Setlist</button>
+  </header>
+
+  <main>
+    <ul id="setlist"></ul>
+    <div id="totalTime">Total Time: 0 min 0 s</div>
+  </main>
+
+  <template id="songTemplate">
+    <li class="song-item" draggable="true">
+      <input type="number" class="song-order" min="1" />
+      <input type="text" class="song-name" placeholder="Song name" />
+      <input type="text" class="song-time" placeholder="mm:ss" />
+      <button class="delete">🗑</button>
+    </li>
+  </template>
+
+  <script src="script.js"></script>
+</body>
+</html>
