@@ -29,7 +29,6 @@ async function loadDataFromFirestore() {
   } catch (err) {
     authError.textContent = 'Failed to load data: ' + err.message;
   }
-}
 
 async function persistFirestore() {
   try {
@@ -82,6 +81,16 @@ loginForm.onsubmit = async (e) => {
 
 logoutBtn.onclick = async () => {
   await window.signOut(window.firebaseAuth);
+};
+
+// Force Logout button for testing
+const forceLogoutBtn = document.getElementById('forceLogoutBtn');
+if (forceLogoutBtn) {
+  forceLogoutBtn.onclick = async () => {
+    await window.signOut(window.firebaseAuth);
+    alert('Forced logout. You should now see the login form.');
+  };
+}
 };
 /* ===== Tabs ===== */
 const tabLibrary = document.getElementById('tabLibrary');
