@@ -35,12 +35,25 @@ function attachRealtimeListeners() {
   if (setlistsUnsub) setlistsUnsub();
 
   libraryUnsub = db.doc(LIBRARY_DOC).onSnapshot(snapshot => {
-    library = snapshot.exists ? snapshot.data().songs || [] : [];
+    if (!snapshot.exists) {
+      db.doc(LIBRARY_DOC).set({ songs: [] });
+      library = [];
+    } else {
+      library = snapshot.data().songs || [];
+    }
     renderLibrary();
   });
 
   setlistsUnsub = db.doc(SETLISTS_DOC).onSnapshot(snapshot => {
-    allSetlists = snapshot.exists ? snapshot.data().allSetlists || {} : {};
+    if (!snapshot.exists) {
+      db.doc(SETLISTS_DOC).set({ allSetlists: { Default: [] } });
+      allSetlists = { Default: [] };
+    } else {
+      allSetlists = snapshot.data().allSetlists || {};
+      if (!Object.keys(allSetlists).length) {
+        allSetlists = { Default: [] };
+      }
+    }
     if (!Object.keys(allSetlists).length) {
       allSetlists = { Default: [] };
     }
