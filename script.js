@@ -1,3 +1,10 @@
+const debugStatus = document.getElementById('debugStatus');
+function setDebugStatus(msg) {
+  if (debugStatus) {
+    debugStatus.textContent = msg;
+    debugStatus.style.display = 'block';
+  }
+}
 // ===== Firebase Auth UI =====
 // ===== Firestore Sync =====
 const LIBRARY_DOC = 'bandData/library';
@@ -54,6 +61,7 @@ function showAppUI(show) {
 }
 
 window.onAuthStateChanged(window.firebaseAuth, user => {
+  setDebugStatus('Auth state changed. User: ' + (user ? user.email : 'none'));
   if (user) {
     loginForm.style.display = 'none';
     userInfo.style.display = '';
