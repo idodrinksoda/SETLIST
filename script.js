@@ -1,344 +1,479 @@
-const setlist = document.getElementById('setlist');
-const printBtn = document.getElementById('printBtn');
-const shareBtn = document.getElementById('shareBtn');
-const totalTimeEl = document.getElementById('totalTime');
-const songTemplate = document.getElementById('songTemplate');
-const savedSongsSelect = document.getElementById('savedSongs');
-const clearAllBtn = document.getElementById('clearAllBtn');
-const libraryToggle = document.getElementById('libraryToggle');
-const libraryMenu = document.getElementById('libraryMenu');
+/* ===== Tabs ===== */
+const tabLibrary = document.getElementById('tabLibrary');
+const tabSetlist = document.getElementById('tabSetlist');
+const libraryView = document.getElementById('libraryView');
+const setlistView = document.getElementById('setlistView');
+
+tabLibrary.onclick = () => {
+  tabLibrary.classList.add('active');
+  tabSetlist.classList.remove('active');
+  libraryView.classList.remove('hidden');
+  setlistView.classList.add('hidden');
+  // Safety: ensure only libraryView is visible
+  if (!libraryView.classList.contains('hidden')) setlistView.classList.add('hidden');
+};
+tabSetlist.onclick = () => {
+  tabSetlist.classList.add('active');
+  tabLibrary.classList.remove('active');
+  libraryView.classList.add('hidden');
+  setlistView.classList.remove('hidden');
+  // Safety: ensure only setlistView is visible
+  if (!setlistView.classList.contains('hidden')) libraryView.classList.add('hidden');
+};
+
+/* ===== Elements ===== */
+const libraryList = document.getElementById('libraryList');
 const libSongName = document.getElementById('libSongName');
 const libSongTime = document.getElementById('libSongTime');
 const saveToLibrary = document.getElementById('saveToLibrary');
-const libraryList = document.getElementById('libraryList');
 
-let songs = JSON.parse(localStorage.getItem('songs') || '[]');
+const setlist = document.getElementById('setlist');
+const totalTimeEl = document.getElementById('totalTime');
+const songTemplate = document.getElementById('songTemplate');
+
+const setlistDropdownBtn = document.getElementById('setlistDropdownBtn');
+const setlistDropdown = document.getElementById('setlistDropdown');
+
+const printBtn = document.getElementById('printBtn');
+const shareBtn = document.getElementById('shareBtn');
+const clearAllBtn = document.getElementById('clearAllBtn');
+
+/* ===== Storage ===== */
 let library = JSON.parse(localStorage.getItem('library') || '[]');
 let allSetlists = JSON.parse(localStorage.getItem('allSetlists') || '{}');
 let currentSetlist = localStorage.getItem('currentSetlist') || 'Default';
-if (!allSetlists[currentSetlist]) allSetlists[currentSetlist] = songs;
+if (!allSetlists[currentSetlist]) allSetlists[currentSetlist] = [];
+let songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
 
-// === SHOW / SETLISTS DROPDOWN ===
-const setlistToggle = document.getElementById('setlistToggle');
-const setlistMenu = document.getElementById('setlistMenu');
-const newSetlistName = document.getElementById('newSetlistName');
-const saveNewSetlist = document.getElementById('saveNewSetlist');
-const setlistList = document.getElementById('setlistList');
-
-setlistToggle.onclick = (e) => {
-  e.stopPropagation();
-  setlistMenu.classList.toggle('show');
-  setlistToggle.textContent = setlistMenu.classList.contains('show')
-    ? '🎛 Show / Setlists ▾'
-    : '🎛 Show / Setlists ▸';
-};
-
-document.addEventListener('click', (e) => {
-  if (!setlistMenu.contains(e.target) && !setlistToggle.contains(e.target)) {
-    setlistMenu.classList.remove('show');
-    setlistToggle.textContent = '🎛 Show / Setlists ▸';
-  }
-});
-
-setlistMenu.addEventListener('click', (e) => e.stopPropagation());
-
-function renderSetlistList() {
-  setlistList.innerHTML = '';
-  for (const name in allSetlists) {
-    const li = document.createElement('li');
-    const span = document.createElement('span');
-    span.textContent = name;
-    span.style.cursor = 'pointer';
-    span.onclick = () => {
-      currentSetlist = name;
-      songs = allSetlists[name];
-      saveAndRender();
-      updateTotalTime();
-      setlistMenu.classList.remove('show');
-      setlistToggle.textContent = '🎛 Show / Setlists ▸';
-    };
-
-    const renameBtn = document.createElement('button');
-    renameBtn.textContent = '✏️';
-    renameBtn.onclick = () => {
-      const newName = prompt('Rename setlist:', name);
-      if (!newName) return;
-      allSetlists[newName] = allSetlists[name];
-      delete allSetlists[name];
-      currentSetlist = newName;
-      localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
-      renderSetlistList();
-    };
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = '🗑';
-    deleteBtn.onclick = () => {
-      if (confirm(`Delete setlist "${name}"?`)) {
-        delete allSetlists[name];
-        localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
-        renderSetlistList();
-      }
-    };
-
-    const controlDiv = document.createElement('div');
-    controlDiv.appendChild(renameBtn);
-    controlDiv.appendChild(deleteBtn);
-
-    li.appendChild(span);
-    li.appendChild(controlDiv);
-    setlistList.appendChild(li);
-  }
-}
-
-saveNewSetlist.onclick = () => {
-  const name = newSetlistName.value.trim();
-  if (!name) return alert('Please enter a name for your setlist.');
-  allSetlists[name] = [...songs];
-  currentSetlist = name;
+function persist() {
+  allSetlists[currentSetlist] = songs;
+  localStorage.setItem('library', JSON.stringify(library));
   localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
   localStorage.setItem('currentSetlist', currentSetlist);
-  renderSetlistList();
-  newSetlistName.value = '';
-};
-
-renderSetlistList();
-
-// === TIME FORMATTING ===
-function formatTimeInput(input) {
-  input = input.replace(/[^0-9]/g, '');
-  if (input.length === 0) return '00:00';
-  if (input.length <= 2) return `00:${input.padStart(2, '0')}`;
-  if (input.length === 3) return `0${input[0]}:${input.slice(1)}`;
-  return `${input.slice(0, -2).padStart(2, '0')}:${input.slice(-2)}`;
 }
 
-// === LIBRARY RENDERING ===
-function renderSavedSongs() {
-  savedSongsSelect.innerHTML = '<option value="">Saved Songs ▼</option>';
-  library.forEach((s, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = `${s.name} (${s.time})`;
-    savedSongsSelect.appendChild(opt);
-  });
-  renderLibraryList();
+/* ===== Helpers ===== */
+function formatTime(t) {
+  t = String(t || '').replace(/\D/g, '');
+  if (t.length <= 2) return `00:${t.padStart(2, '0')}`;
+  if (t.length === 3) return `0${t[0]}:${t.slice(1)}`;
+  return `${t.slice(0, -2).padStart(2, '0')}:${t.slice(-2)}`;
+}
+function parseTime(str) {
+  const [m, s] = (str || '').split(':').map(n => Number(n) || 0);
+  return m * 60 + s;
+}
+function updateTotal() {
+  const total = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
+  const m = Math.floor(total / 60), s = total % 60;
+  totalTimeEl.textContent = `Total Time: ${m} min ${s} s`;
 }
 
-function renderLibraryList() {
+/* ===== Library (editable + add-to-setlist) ===== */
+function renderLibrary() {
   libraryList.innerHTML = '';
   library.forEach((song, i) => {
     const li = document.createElement('li');
-    li.dataset.index = i;
 
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = `${song.name} (${song.time})`;
+    const name = document.createElement('input');
+    name.value = song.name;
+    name.placeholder = 'Song name';
+    name.onblur = () => { library[i].name = name.value.trim(); persist(); };
+    name.addEventListener('keydown', e => { if (e.key === 'Enter') name.blur(); });
+
+    const time = document.createElement('input');
+    time.value = song.time;
+    time.placeholder = '03:00';
+    time.onblur = () => { library[i].time = formatTime(time.value); time.value = library[i].time; persist(); };
+    time.addEventListener('keydown', e => { if (e.key === 'Enter') time.blur(); });
 
     const controls = document.createElement('div');
 
-    const editBtn = document.createElement('button');
-    editBtn.textContent = '✏️';
-    editBtn.onclick = () => startInlineEdit(i, li);
+    // ➕ add to current setlist (push a COPY to avoid shared references)
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '➕';
+    addBtn.title = 'Add to current setlist';
+    addBtn.onclick = () => {
+      const copy = { name: library[i].name, time: library[i].time };
+      songs.push(copy);
+      persist(); renderSetlist(); updateTotal();
+    };
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = '🗑';
-    deleteBtn.onclick = () => deleteLibrarySong(i);
+    const del = document.createElement('button');
+    del.textContent = '🗑';
+    del.title = 'Delete from library';
+    del.onclick = () => {
+      library.splice(i, 1);
+      persist(); renderLibrary();
+      // Do NOT touch songs; setlist remains intact
+    };
 
-    controls.appendChild(editBtn);
-    controls.appendChild(deleteBtn);
-    li.appendChild(nameSpan);
-    li.appendChild(controls);
+    controls.append(addBtn, del);
+    li.append(name, time, controls);
     libraryList.appendChild(li);
   });
 }
 
-function startInlineEdit(index, li) {
-  const song = library[index];
-  li.innerHTML = '';
+saveToLibrary.onclick = () => {
+  const n = libSongName.value.trim();
+  let t = formatTime(libSongTime.value || '03:00');
+  if (!n) return;
+  library.push({ name: n, time: t });
+  libSongName.value = ''; libSongTime.value = '';
+  persist(); renderLibrary();
+};
 
-  const nameInput = document.createElement('input');
-  nameInput.value = song.name;
-  nameInput.classList.add('edit-input');
-
-  const timeInput = document.createElement('input');
-  timeInput.value = song.time;
-  timeInput.classList.add('edit-input', 'time-input');
-
-  const saveBtn = document.createElement('button');
-  saveBtn.textContent = '💾';
-  saveBtn.onclick = () => {
-    song.name = nameInput.value.trim() || song.name;
-    song.time = formatTimeInput(timeInput.value.trim() || song.time);
-    library[index] = song;
-    localStorage.setItem('library', JSON.stringify(library));
-    renderSavedSongs();
-  };
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = '❌';
-  cancelBtn.onclick = () => renderSavedSongs();
-
-  li.appendChild(nameInput);
-  li.appendChild(timeInput);
-  li.appendChild(saveBtn);
-  li.appendChild(cancelBtn);
-}
-
-function deleteLibrarySong(index) {
-  if (confirm(`Delete '${library[index].name}' from library?`)) {
-    library.splice(index, 1);
-    localStorage.setItem('library', JSON.stringify(library));
-    renderSavedSongs();
-  }
-}
-
-// === SETLIST RENDERING ===
-function renderSongs() {
+/* ===== Setlist (read-only + draggable) ===== */
+function renderSetlist() {
   setlist.innerHTML = '';
   songs.forEach((song, i) => {
     const item = songTemplate.content.cloneNode(true).children[0];
-    const order = item.querySelector('.song-order');
-    const name  = item.querySelector('.song-name');
-    const time  = item.querySelector('.song-time');
 
-    order.value = i + 1;
-    name.value  = song.name;
-    time.value  = song.time;
+    // spans = read-only display
+    item.querySelector('.song-order').textContent = i + 1;
+    item.querySelector('.song-name').textContent  = song.name;
+    item.querySelector('.song-time').textContent  = song.time;
 
-    order.readOnly = true;
-    order.style.pointerEvents = 'none';
-    order.style.color = '#888';
-
-    name.readOnly = true;
-    time.readOnly = true;
-
+    // delete ONLY from setlist
     item.querySelector('.delete').onclick = () => {
       songs.splice(i, 1);
-      saveAndRender();
+      persist(); renderSetlist(); updateTotal();
     };
 
-    // Drag-and-drop
-    item.addEventListener('dragstart', () => {
-      item.classList.add('dragging');
-      item.style.transition = 'none';
-    });
+    // drag handlers
+    item.addEventListener('dragstart', () => item.classList.add('dragging'));
     item.addEventListener('dragend', () => {
       item.classList.remove('dragging');
-      item.style.transition = '';
-      reorderSongs();
+      // write back new order
+      songs = [...setlist.children].map(li => ({
+        name: li.querySelector('.song-name').textContent,
+        time: li.querySelector('.song-time').textContent
+      }));
+      persist(); renderSetlist(); updateTotal();
     });
 
     setlist.appendChild(item);
   });
-  updateTotalTime();
-}
-
-function reorderSongs() {
-  const newOrder = [...setlist.children].map(li => ({
-    name: li.querySelector('.song-name').value,
-    time: li.querySelector('.song-time').value,
-  }));
-  songs = newOrder;
-  saveAndRender();
+  updateTotal();
 }
 
 setlist.addEventListener('dragover', e => {
   e.preventDefault();
   const dragging = document.querySelector('.dragging');
-  const siblings = [...setlist.children].filter(c => c !== dragging);
-  const nextSibling = siblings.find(s => e.clientY <= s.offsetTop + s.offsetHeight / 2);
-  if (nextSibling) setlist.insertBefore(dragging, nextSibling);
+  if (!dragging) return;
+  const after = [...setlist.children].find(li => e.clientY <= li.offsetTop + li.offsetHeight / 2);
+  if (after) setlist.insertBefore(dragging, after);
   else setlist.appendChild(dragging);
 });
 
-function parseTime(str) {
-  const [m, s] = str.split(':').map(Number);
-  return (m || 0) * 60 + (s || 0);
+/* ===== Setlist dropdown (load/save/new) ===== */
+function renderDropdown() {
+  setlistDropdown.innerHTML = '';
+
+  // Existing setlists with delete icon
+  Object.keys(allSetlists).forEach(name => {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.justifyContent = 'space-between';
+    row.style.padding = '0 0.5rem';
+
+    const btn = document.createElement('button');
+    btn.textContent = name + (name === currentSetlist ? ' ✓' : '');
+    btn.style.flex = '1';
+    btn.onclick = () => {
+      // Load selected setlist
+      currentSetlist = name;
+      songs = Array.isArray(allSetlists[name]) ? [...allSetlists[name]] : [];
+      persist(); renderSetlist(); updateTotal();
+      toggleDropdown(false);
+    };
+
+    const delBtn = document.createElement('button');
+    delBtn.innerHTML = '🗑';
+    delBtn.title = 'Delete setlist';
+    delBtn.style.background = 'none';
+    delBtn.style.border = 'none';
+    delBtn.style.color = '#ff2b6a';
+    delBtn.style.fontSize = '1.1rem';
+    delBtn.style.cursor = 'pointer';
+    delBtn.style.marginLeft = '0.5rem';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (Object.keys(allSetlists).length <= 1) {
+        delBtn.innerHTML = '🚫';
+        setTimeout(() => { delBtn.innerHTML = '🗑'; }, 1500);
+        return;
+      }
+      delete allSetlists[name];
+      // Switch to another setlist if current was deleted
+      if (currentSetlist === name) {
+        const names = Object.keys(allSetlists);
+        currentSetlist = names[0];
+        songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+      }
+      persist();
+      renderSetlist();
+      renderDropdown();
+      updateTotal();
+    };
+
+    row.appendChild(btn);
+    row.appendChild(delBtn);
+    setlistDropdown.appendChild(row);
+  });
+
+  // Divider
+  const hr = document.createElement('div');
+  hr.style.height = '1px';
+  hr.style.background = '#333';
+  setlistDropdown.appendChild(hr);
+
+
+  // Save Current As… (inline input)
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = '💾 Save Current As…';
+  saveBtn.onclick = () => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Setlist name';
+    input.style.marginLeft = '0.5rem';
+    saveBtn.after(input);
+    input.focus();
+    input.onblur = () => {
+      const name = input.value.trim();
+      if (name) {
+        allSetlists[name] = [...songs];
+        currentSetlist = name;
+        persist();
+        renderDropdown();
+        toggleDropdown(false);
+      }
+      input.remove();
+    };
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') input.blur();
+      if (e.key === 'Escape') input.remove();
+    });
+  };
+  setlistDropdown.appendChild(saveBtn);
+
+
+  // New Empty Setlist (inline input)
+  const newBtn = document.createElement('button');
+  newBtn.textContent = '＋ New Empty Setlist';
+  newBtn.onclick = () => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'New setlist name';
+    input.style.marginLeft = '0.5rem';
+    newBtn.after(input);
+    input.focus();
+    input.onblur = () => {
+      const name = input.value.trim();
+      if (name) {
+        allSetlists[name] = [];
+        currentSetlist = name;
+        songs = [];
+        persist(); renderSetlist(); updateTotal();
+        renderDropdown();
+        toggleDropdown(false);
+      }
+      input.remove();
+    };
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') input.blur();
+      if (e.key === 'Escape') input.remove();
+    });
+  };
+  setlistDropdown.appendChild(newBtn);
 }
 
-function updateTotalTime() {
-  const totalSeconds = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  const newText = `Total Time: ${m} min ${s} s`;
+function toggleDropdown(force) {
+  const show = force !== undefined ? force : !setlistDropdown.classList.contains('show');
+  setlistDropdown.classList.toggle('show', show);
+  setlistDropdownBtn.textContent = show ? '🎛 Select Setlist ▴' : '🎛 Select Setlist ▾';
 
-  if (totalTimeEl.textContent !== newText) {
-    totalTimeEl.style.opacity = 0.3;
-    setTimeout(() => {
-      totalTimeEl.textContent = newText;
-      totalTimeEl.style.opacity = 1;
-    }, 120);
-  }
+  // smart positioning (open upward if less space below)
+  const rect = setlistDropdownBtn.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+  setlistDropdown.style.top = openUp ? 'auto' : '2.6rem';
+  setlistDropdown.style.bottom = openUp ? '2.6rem' : 'auto';
 }
 
-function saveAndRender() {
-  allSetlists[currentSetlist] = songs;
-  localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
-  localStorage.setItem('currentSetlist', currentSetlist);
-  renderSongs();
-}
-
-// === DROPDOWNS ===
-libraryToggle.onclick = (e) => {
-  e.stopPropagation();
-  libraryMenu.classList.toggle('show');
-  libraryToggle.textContent = libraryMenu.classList.contains('show')
-    ? '🎵 Library ▾'
-    : '🎵 Library ▸';
-};
-
-document.addEventListener('click', (e) => {
-  if (!libraryMenu.contains(e.target) && !libraryToggle.contains(e.target)) {
-    libraryMenu.classList.remove('show');
-    libraryToggle.textContent = '🎵 Library ▸';
+setlistDropdownBtn.onclick = e => { e.stopPropagation(); renderDropdown(); toggleDropdown(); };
+document.addEventListener('click', e => {
+  if (!setlistDropdown.contains(e.target) && e.target !== setlistDropdownBtn) {
+    toggleDropdown(false);
   }
 });
 
-libraryMenu.addEventListener('click', (e) => e.stopPropagation());
-
-saveToLibrary.onclick = () => {
-  const name = libSongName.value.trim();
-  let time = libSongTime.value.trim() || '03:00';
-  if (!name) return alert('Please enter a song name.');
-  time = formatTimeInput(time);
-
-  if (!library.find(s => s.name.toLowerCase() === name.toLowerCase())) {
-    library.push({ name, time });
-    localStorage.setItem('library', JSON.stringify(library));
-    renderSavedSongs();
+/* ===== Buttons ===== */
+clearAllBtn.onclick = () => {
+  // Inline clear confirmation: double click to clear
+  if (clearAllBtn.dataset.confirm === 'yes') {
+    songs = [];
+    persist(); renderSetlist(); updateTotal();
+    clearAllBtn.textContent = '🧹 Clear';
+    clearAllBtn.dataset.confirm = '';
   } else {
-    alert('That song is already in the library.');
+    clearAllBtn.textContent = 'Click again to confirm';
+    clearAllBtn.dataset.confirm = 'yes';
+    setTimeout(() => {
+      clearAllBtn.textContent = '🧹 Clear';
+      clearAllBtn.dataset.confirm = '';
+    }, 2000);
   }
-  libSongName.value = '';
-  libSongTime.value = '';
 };
 
-// === PRINT & SHARE ===
+
 printBtn.onclick = () => {
-  const width = 800;
-  const height = 1000;
-  const left = (window.screen.width / 2) - (width / 2);
-  const top = (window.screen.height / 2) - (height / 2);
-  const win = window.open('', '', `width=${width},height=${height},top=${top},left=${left}`);
-  const listHTML = songs.map(s => `<div>${s.name}</div>`).join('<br>');
-  const html = `
-    <!DOCTYPE html><html><head><style>
-      body { font-family: Arial, sans-serif; background: white; color: black; font-size: 22px; line-height: 1.6; columns: 2; column-gap: 3rem; margin: 2rem; }
-      div { break-inside: avoid; padding: 0.4rem 0; }
-    </style></head><body>${listHTML}</body></html>`;
-  win.document.write(html);
+  const html = songs.map(s => `<div>${s.name}</div>`).join('<br>');
+  const win = window.open('', '', 'width=800,height=1000');
+  win.document.write(`
+    <!doctype html><html><head><style>
+      body{font-family:Arial,sans-serif;font-size:22px;line-height:1.6;margin:2rem;columns:2;column-gap:3rem}
+      div{break-inside:avoid;padding:.4rem 0}
+    </style></head><body>${html}</body></html>`);
   win.document.close();
-  win.onload = function() {
-    win.print();
-    win.onafterprint = () => win.close();
-  };
+  win.onload = () => { win.print(); win.onafterprint = () => win.close(); };
 };
 
-shareBtn.onclick = () => {
-  const data = songs.map(s => s.name).join('\n');
-  navigator.clipboard.writeText(data);
-  alert('Setlist copied to clipboard!');
+
+shareBtn.onclick = async () => {
+  console.log('Share button clicked');
+  const text = songs.map(s => s.name).join('\n');
+  const link = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(currentSetlist)}`;
+
+  try {
+    // Remove any previous menu
+    let oldMenu = document.getElementById('shareMenu');
+    if (oldMenu) oldMenu.remove();
+
+    // Create share menu
+    const menu = document.createElement('div');
+    menu.id = 'shareMenu';
+    menu.style.position = 'fixed';
+    menu.style.bottom = '3.5rem';
+    menu.style.left = '50%';
+    menu.style.transform = 'translateX(-50%)';
+    menu.style.background = '#222';
+    menu.style.color = '#fff';
+    menu.style.padding = '0.7rem 1.2rem';
+    menu.style.borderRadius = '10px';
+    menu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+    menu.style.zIndex = '9999';
+    menu.style.display = 'flex';
+    menu.style.flexDirection = 'column';
+    menu.style.gap = '0.5rem';
+
+    // Option 1: Share via Web Share API
+    if (navigator.share) {
+      const shareBtn = document.createElement('button');
+      shareBtn.textContent = 'Share via device...';
+      shareBtn.style.background = '#ff2b6a';
+      shareBtn.style.color = '#fff';
+      shareBtn.style.border = 'none';
+      shareBtn.style.borderRadius = '6px';
+      shareBtn.style.padding = '0.5rem 1rem';
+      shareBtn.style.cursor = 'pointer';
+      shareBtn.onclick = async () => {
+        try {
+          await navigator.share({ title: 'Setlist', text });
+          showShareMessage('Setlist shared!');
+        } catch {
+          showShareMessage('Share canceled or failed.');
+        }
+        menu.remove();
+      };
+      menu.appendChild(shareBtn);
+    }
+
+    // Option 2: Copy setlist text
+    const copyTextBtn = document.createElement('button');
+    copyTextBtn.textContent = 'Copy setlist text';
+    copyTextBtn.style.background = '#444';
+    copyTextBtn.style.color = '#fff';
+    copyTextBtn.style.border = 'none';
+    copyTextBtn.style.borderRadius = '6px';
+    copyTextBtn.style.padding = '0.5rem 1rem';
+    copyTextBtn.style.cursor = 'pointer';
+    copyTextBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        showShareMessage('Setlist copied to clipboard!');
+      } catch {
+        showShareMessage('Clipboard blocked by browser.');
+      }
+      menu.remove();
+    };
+    menu.appendChild(copyTextBtn);
+
+    // Option 3: Copy setlist link
+    const copyLinkBtn = document.createElement('button');
+    copyLinkBtn.textContent = 'Copy setlist link';
+    copyLinkBtn.style.background = '#444';
+    copyLinkBtn.style.color = '#fff';
+    copyLinkBtn.style.border = 'none';
+    copyLinkBtn.style.borderRadius = '6px';
+    copyLinkBtn.style.padding = '0.5rem 1rem';
+    copyLinkBtn.style.cursor = 'pointer';
+    copyLinkBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        showShareMessage('Setlist link copied!');
+      } catch {
+        showShareMessage('Clipboard blocked by browser.');
+      }
+      menu.remove();
+    };
+    menu.appendChild(copyLinkBtn);
+
+    // Option 4: Cancel
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.background = '#333';
+    cancelBtn.style.color = '#fff';
+    cancelBtn.style.border = 'none';
+    cancelBtn.style.borderRadius = '6px';
+    cancelBtn.style.padding = '0.5rem 1rem';
+    cancelBtn.style.cursor = 'pointer';
+    cancelBtn.onclick = () => menu.remove();
+    menu.appendChild(cancelBtn);
+
+    document.body.appendChild(menu);
+
+    function showShareMessage(msg) {
+      let messageEl = document.getElementById('shareMessage');
+      if (!messageEl) {
+        messageEl = document.createElement('div');
+        messageEl.id = 'shareMessage';
+        messageEl.style.position = 'fixed';
+        messageEl.style.bottom = '2rem';
+        messageEl.style.left = '50%';
+        messageEl.style.transform = 'translateX(-50%)';
+        messageEl.style.background = '#222';
+        messageEl.style.color = '#fff';
+        messageEl.style.padding = '0.7rem 1.2rem';
+        messageEl.style.borderRadius = '10px';
+        messageEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+        messageEl.style.zIndex = '9999';
+        document.body.appendChild(messageEl);
+      }
+      messageEl.textContent = msg;
+      setTimeout(() => { messageEl.textContent = ''; }, 2000);
+    }
+  } catch (err) {
+    alert('Share menu failed to open.');
+    console.error('Share menu error:', err);
+  }
 };
 
-// === INIT ===
-renderSavedSongs();
-renderSongs();
+/* ===== Init ===== */
+
+renderLibrary();
+renderSetlist();
+renderDropdown();
+updateTotal();

@@ -7,49 +7,48 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>SETLIST</h1>
-
-    <!-- 🎵 Library -->
-    <div class="dropdown">
-      <button id="libraryToggle">🎵 Library ▸</button>
-      <div id="libraryMenu" class="dropdown-content">
-        <div class="library-add">
-          <input type="text" id="libSongName" placeholder="Song name" />
-          <input type="text" id="libSongTime" placeholder="03:00" />
-          <button id="saveToLibrary">Add</button>
-        </div>
-        <ul id="libraryList"></ul>
-      </div>
-    </div>
-
-    <!-- 🎛 Setlists -->
-    <div class="dropdown">
-      <button id="setlistToggle">🎛 Setlists ▸</button>
-      <div id="setlistMenu" class="dropdown-content">
-        <div class="setlist-add">
-          <input type="text" id="newSetlistName" placeholder="Setlist name" />
-          <button id="saveNewSetlist">Save Current</button>
-        </div>
-        <ul id="setlistList"></ul>
-      </div>
-    </div>
-
-    <button id="printBtn">🖨️ Print</button>
-    <button id="shareBtn">🔗 Share</button>
-    <button id="clearAllBtn">🧹 Clear</button>
+  <header class="tab-header">
+    <button id="tabLibrary" class="active">🎵 Library</button>
+    <button id="tabSetlist">🎛 Setlist</button>
   </header>
 
-  <main>
+
+  <!-- ===== LIBRARY VIEW ===== -->
+  <main id="libraryView">
+    <h2 class="view-heading">Song Library</h2>
+    <div class="library-controls">
+      <input type="text" id="libSongName" placeholder="Song name" />
+      <input type="text" id="libSongTime" placeholder="03:00" />
+      <button id="saveToLibrary">＋ Add Song</button>
+    </div>
+    <ul id="libraryList"></ul>
+  </main>
+
+  <!-- ===== SETLIST VIEW ===== -->
+  <main id="setlistView" class="hidden">
+    <h2 class="view-heading">Current Setlist</h2>
+    <div class="setlist-controls">
+      <div class="dropdown">
+  <button id="setlistDropdownBtn">🎛 Select Setlist ▾</button>
+  <div id="setlistDropdown" class="dropdown-content"></div>
+      </div>
+
+      <div class="setlist-actions">
+  <button id="printBtn">🖨️ Print</button>
+  <button id="shareBtn">🔗 Share</button>
+  <button id="clearAllBtn">🧹 Clear</button>
+      </div>
+    </div>
+
     <ul id="setlist"></ul>
     <div id="totalTime">Total Time: 0 min 0 s</div>
   </main>
 
   <template id="songTemplate">
     <li class="song-item" draggable="true">
-      <input type="number" class="song-order" min="1" readonly />
-      <input type="text" class="song-name" readonly />
-      <input type="text" class="song-time" readonly />
+      <span class="song-order"></span>
+      <span class="song-name"></span>
+      <span class="song-time"></span>
       <button class="delete">🗑</button>
     </li>
   </template>
