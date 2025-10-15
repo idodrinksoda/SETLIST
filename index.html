@@ -8,10 +8,9 @@
 </head>
 <body>
   <header>
-    <h1>Band Setlist</h1>
-    <button id="addSongBtn">＋ Add Song</button>
-    <select id="savedSongs"></select>
+    <h1>SETLIST</h1>
 
+    <!-- 🎵 Library -->
     <div class="dropdown">
       <button id="libraryToggle">🎵 Library ▸</button>
       <div id="libraryMenu" class="dropdown-content">
@@ -24,9 +23,21 @@
       </div>
     </div>
 
+    <!-- 🎛 Setlists -->
+    <div class="dropdown">
+      <button id="setlistToggle">🎛 Setlists ▸</button>
+      <div id="setlistMenu" class="dropdown-content">
+        <div class="setlist-add">
+          <input type="text" id="newSetlistName" placeholder="Setlist name" />
+          <button id="saveNewSetlist">Save Current</button>
+        </div>
+        <ul id="setlistList"></ul>
+      </div>
+    </div>
+
     <button id="printBtn">🖨️ Print</button>
     <button id="shareBtn">🔗 Share</button>
-    <button id="clearAllBtn">🧹 Clear Setlist</button>
+    <button id="clearAllBtn">🧹 Clear</button>
   </header>
 
   <main>
@@ -36,9 +47,9 @@
 
   <template id="songTemplate">
     <li class="song-item" draggable="true">
-      <input type="number" class="song-order" min="1" />
-      <input type="text" class="song-name" placeholder="Song name" />
-      <input type="text" class="song-time" placeholder="mm:ss" />
+      <input type="number" class="song-order" min="1" readonly />
+      <input type="text" class="song-name" readonly />
+      <input type="text" class="song-time" readonly />
       <button class="delete">🗑</button>
     </li>
   </template>

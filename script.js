@@ -1,5 +1,4 @@
 const setlist = document.getElementById('setlist');
-const addSongBtn = document.getElementById('addSongBtn');
 const printBtn = document.getElementById('printBtn');
 const shareBtn = document.getElementById('shareBtn');
 const totalTimeEl = document.getElementById('totalTime');
@@ -15,6 +14,94 @@ const libraryList = document.getElementById('libraryList');
 
 let songs = JSON.parse(localStorage.getItem('songs') || '[]');
 let library = JSON.parse(localStorage.getItem('library') || '[]');
+let allSetlists = JSON.parse(localStorage.getItem('allSetlists') || '{}');
+let currentSetlist = localStorage.getItem('currentSetlist') || 'Default';
+if (!allSetlists[currentSetlist]) allSetlists[currentSetlist] = songs;
+
+// === SHOW / SETLISTS DROPDOWN ===
+const setlistToggle = document.getElementById('setlistToggle');
+const setlistMenu = document.getElementById('setlistMenu');
+const newSetlistName = document.getElementById('newSetlistName');
+const saveNewSetlist = document.getElementById('saveNewSetlist');
+const setlistList = document.getElementById('setlistList');
+
+setlistToggle.onclick = (e) => {
+  e.stopPropagation();
+  setlistMenu.classList.toggle('show');
+  setlistToggle.textContent = setlistMenu.classList.contains('show')
+    ? '🎛 Show / Setlists ▾'
+    : '🎛 Show / Setlists ▸';
+};
+
+document.addEventListener('click', (e) => {
+  if (!setlistMenu.contains(e.target) && !setlistToggle.contains(e.target)) {
+    setlistMenu.classList.remove('show');
+    setlistToggle.textContent = '🎛 Show / Setlists ▸';
+  }
+});
+
+setlistMenu.addEventListener('click', (e) => e.stopPropagation());
+
+function renderSetlistList() {
+  setlistList.innerHTML = '';
+  for (const name in allSetlists) {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = name;
+    span.style.cursor = 'pointer';
+    span.onclick = () => {
+      currentSetlist = name;
+      songs = allSetlists[name];
+      saveAndRender();
+      updateTotalTime();
+      setlistMenu.classList.remove('show');
+      setlistToggle.textContent = '🎛 Show / Setlists ▸';
+    };
+
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = '✏️';
+    renameBtn.onclick = () => {
+      const newName = prompt('Rename setlist:', name);
+      if (!newName) return;
+      allSetlists[newName] = allSetlists[name];
+      delete allSetlists[name];
+      currentSetlist = newName;
+      localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
+      renderSetlistList();
+    };
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '🗑';
+    deleteBtn.onclick = () => {
+      if (confirm(`Delete setlist "${name}"?`)) {
+        delete allSetlists[name];
+        localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
+        renderSetlistList();
+      }
+    };
+
+    const controlDiv = document.createElement('div');
+    controlDiv.appendChild(renameBtn);
+    controlDiv.appendChild(deleteBtn);
+
+    li.appendChild(span);
+    li.appendChild(controlDiv);
+    setlistList.appendChild(li);
+  }
+}
+
+saveNewSetlist.onclick = () => {
+  const name = newSetlistName.value.trim();
+  if (!name) return alert('Please enter a name for your setlist.');
+  allSetlists[name] = [...songs];
+  currentSetlist = name;
+  localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
+  localStorage.setItem('currentSetlist', currentSetlist);
+  renderSetlistList();
+  newSetlistName.value = '';
+};
+
+renderSetlistList();
 
 // === TIME FORMATTING ===
 function formatTimeInput(input) {
@@ -117,7 +204,10 @@ function renderSongs() {
     name.value  = song.name;
     time.value  = song.time;
 
-    // make read-only
+    order.readOnly = true;
+    order.style.pointerEvents = 'none';
+    order.style.color = '#888';
+
     name.readOnly = true;
     time.readOnly = true;
 
@@ -126,12 +216,14 @@ function renderSongs() {
       saveAndRender();
     };
 
-    // enable drag-and-drop
+    // Drag-and-drop
     item.addEventListener('dragstart', () => {
       item.classList.add('dragging');
+      item.style.transition = 'none';
     });
     item.addEventListener('dragend', () => {
       item.classList.remove('dragging');
+      item.style.transition = '';
       reorderSongs();
     });
 
@@ -167,46 +259,25 @@ function updateTotalTime() {
   const totalSeconds = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-  totalTimeEl.textContent = `Total Time: ${m} min ${s} s`;
+  const newText = `Total Time: ${m} min ${s} s`;
+
+  if (totalTimeEl.textContent !== newText) {
+    totalTimeEl.style.opacity = 0.3;
+    setTimeout(() => {
+      totalTimeEl.textContent = newText;
+      totalTimeEl.style.opacity = 1;
+    }, 120);
+  }
 }
 
 function saveAndRender() {
-  localStorage.setItem('songs', JSON.stringify(songs));
+  allSetlists[currentSetlist] = songs;
+  localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
+  localStorage.setItem('currentSetlist', currentSetlist);
   renderSongs();
 }
 
-// === BUTTONS ===
-addSongBtn.onclick = () => {
-  if (library.length === 0) {
-    alert('Add songs to your library first!');
-    return;
-  }
-  const name = prompt('Enter song name from library:');
-  const match = library.find(s => s.name.toLowerCase() === name?.toLowerCase());
-  if (!match) return alert('Song not found in library.');
-  songs.push(match);
-  saveAndRender();
-};
-
-savedSongsSelect.onchange = e => {
-  const selected = library[e.target.value];
-  if (selected) {
-    songs.push(selected);
-    saveAndRender();
-  }
-  savedSongsSelect.value = '';
-};
-
-clearAllBtn.onclick = () => {
-  if (confirm('Clear current setlist? Saved songs will remain.')) {
-    songs = [];
-    localStorage.setItem('songs', JSON.stringify([]));
-    renderSongs();
-    updateTotalTime();
-  }
-};
-
-// === DROPDOWN ===
+// === DROPDOWNS ===
 libraryToggle.onclick = (e) => {
   e.stopPropagation();
   libraryMenu.classList.toggle('show');
@@ -215,7 +286,6 @@ libraryToggle.onclick = (e) => {
     : '🎵 Library ▸';
 };
 
-// Close dropdown only when clicking completely outside
 document.addEventListener('click', (e) => {
   if (!libraryMenu.contains(e.target) && !libraryToggle.contains(e.target)) {
     libraryMenu.classList.remove('show');
@@ -223,11 +293,7 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Prevent clicks inside library menu (inputs, buttons) from closing it
-libraryMenu.addEventListener('click', (e) => {
-  e.stopPropagation();
-});
-
+libraryMenu.addEventListener('click', (e) => e.stopPropagation());
 
 saveToLibrary.onclick = () => {
   const name = libSongName.value.trim();
@@ -246,24 +312,24 @@ saveToLibrary.onclick = () => {
   libSongTime.value = '';
 };
 
-// === PRINT AND SHARE ===
+// === PRINT & SHARE ===
 printBtn.onclick = () => {
   const width = 800;
   const height = 1000;
   const left = (window.screen.width / 2) - (width / 2);
   const top = (window.screen.height / 2) - (height / 2);
-  const win = window.open('', '', 'width=' + width + ',height=' + height + ',top=' + top + ',left=' + left);
-  const listHTML = songs.map(s => '<div>' + s.name + '</div>').join('<br>');
-  const html =
-    '<!DOCTYPE html><html><head><style>' +
-    'body { font-family: Arial, sans-serif; background: white; color: black; font-size: 22px; line-height: 1.6; columns: 2; column-gap: 3rem; margin: 2rem; }' +
-    'div { break-inside: avoid; padding: 0.4rem 0; }' +
-    '</style></head><body>' + listHTML + '</body></html>';
+  const win = window.open('', '', `width=${width},height=${height},top=${top},left=${left}`);
+  const listHTML = songs.map(s => `<div>${s.name}</div>`).join('<br>');
+  const html = `
+    <!DOCTYPE html><html><head><style>
+      body { font-family: Arial, sans-serif; background: white; color: black; font-size: 22px; line-height: 1.6; columns: 2; column-gap: 3rem; margin: 2rem; }
+      div { break-inside: avoid; padding: 0.4rem 0; }
+    </style></head><body>${listHTML}</body></html>`;
   win.document.write(html);
   win.document.close();
   win.onload = function() {
     win.print();
-    win.onafterprint = function() { win.close(); };
+    win.onafterprint = () => win.close();
   };
 };
 

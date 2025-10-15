@@ -1,36 +1,111 @@
+/* ====== GLOBAL ====== */
+:root {
+  --bg: #0b0b0d;
+  --card: #16161a;
+  --fg: #f5f5f7;
+  --muted: #a1a1aa;
+  --accent: #ff2b6a;
+  --radius: 12px;
+  --shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ====== LAYOUT ====== */
 body {
-  font-family: system-ui, sans-serif;
-  background: #0b0b0d;
-  color: #f5f5f7;
+  max-width: 750px;
+  margin: 0 auto;
   padding: 1rem;
-  max-width: 700px;
-  margin: auto;
-}
-
-header {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 1rem;
 }
 
+/* ====== HEADER ====== */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  backdrop-filter: blur(10px);
+  background: rgba(11, 11, 13, 0.85);
+  border-bottom: 1px solid #222;
+  padding: 0.6rem 0.8rem;
+}
+
+h1 {
+  width: 100%;
+  text-align: center;
+  font-size: 1.8rem;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.3rem;
+}
+
+/* ====== BUTTONS ====== */
+button {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.7rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease, filter 0.2s ease;
+  box-shadow: var(--shadow);
+  flex: 1 1 auto;
+  min-width: 90px;
+}
+
+button:hover {
+  background: #ff4f84;
+}
+
+button:active {
+  transform: scale(0.96);
+  filter: brightness(1.1);
+}
+
+/* ====== SELECT ====== */
+select {
+  background: var(--card);
+  border: 1px solid #333;
+  color: #fff;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius);
+  font-size: 1rem;
+}
+
+/* ====== DROPDOWN ====== */
 .dropdown {
   position: relative;
 }
 
 .dropdown-content {
   position: absolute;
-  top: 2.5rem;
+  top: 2.7rem;
   left: 0;
-  background: #131318;
+  background: var(--card);
   color: white;
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 0.7rem;
   border: 1px solid #333;
   flex-direction: column;
   gap: 0.5rem;
-  width: 250px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  width: 270px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6),
+              0 0 10px rgba(255, 43, 106, 0.15);
   z-index: 10;
   overflow: hidden;
   max-height: 0;
@@ -41,59 +116,254 @@ header {
 }
 
 .dropdown-content.show {
-  max-height: 400px;
+  max-height: 450px;
   opacity: 1;
   pointer-events: auto;
 }
 
+/* ====== LIBRARY ====== */
+.library-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .library-add input {
-  background: #1b1b1f;
+  background: #1c1c20;
   color: white;
-  border: 1px solid #555;
-  border-radius: 5px;
-  padding: 0.3rem;
-  width: 100%;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 0.4rem;
+  font-size: 0.9rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.library-add input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(255, 43, 106, 0.4);
 }
 
 .library-add button {
-  background: #ff2b6a;
-  border: none;
-  border-radius: 5px;
-  color: white;
+  font-size: 0.9rem;
   padding: 0.4rem;
-  cursor: pointer;
-  margin-top: 0.3rem;
 }
 
 #libraryList {
   list-style: none;
   padding: 0;
-  margin: 0;
-  max-height: 200px;
+  margin: 0.5rem 0 0 0;
+  max-height: 230px;
   overflow-y: auto;
-  border-top: 1px solid #444;
-  padding-top: 0.3rem;
+  border-top: 1px solid #333;
+  padding-top: 0.4rem;
 }
 
 #libraryList li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.9rem;
   background: #1b1b1f;
-  margin-bottom: 0.2rem;
-  padding: 0.3rem 0.5rem;
-  border-radius: 4px;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
 }
 
 #libraryList button {
   background: none;
   border: none;
-  color: #ff2b6a;
+  color: var(--accent);
+  font-size: 1.1rem;
   cursor: pointer;
 }
 
-/* === PRINT STYLES === */
+/* ====== EDIT INPUTS IN DROPDOWN ====== */
+.edit-input {
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.9rem;
+  margin-right: 0.3rem;
+}
+
+.time-input {
+  width: 65px;
+}
+
+/* ====== SETLIST AREA ====== */
+main {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+#setlist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.song-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(145deg, #18181c, #121214);
+  border: 1px solid #222;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius);
+  cursor: grab;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.song-item:active {
+  transform: scale(0.98);
+  background: #222226;
+}
+
+.song-item input {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1rem;
+  width: 100%;
+}
+
+.song-order {
+  width: 2.5rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.song-time {
+  width: 4rem;
+  text-align: right;
+}
+
+.delete {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+#totalTime {
+  text-align: right;
+  color: var(--muted);
+  font-size: 1rem;
+  margin-top: 0.6rem;
+}
+
+/* ====== DRAG & DROP ====== */
+.song-item.dragging {
+  opacity: 0.85;
+  background: #2a2a2f;
+  transform: scale(1.02);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  cursor: grabbing;
+}
+
+/* ====== SETLIST DROPDOWN ====== */
+#setlistMenu {
+  width: 260px;
+}
+
+.setlist-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.setlist-add input {
+  background: #1c1c20;
+  color: white;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 0.4rem;
+  font-size: 0.9rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.setlist-add input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(255, 43, 106, 0.4);
+}
+
+.setlist-add button {
+  font-size: 0.9rem;
+  padding: 0.4rem;
+}
+
+#setlistList {
+  list-style: none;
+  padding: 0;
+  margin: 0.4rem 0 0 0;
+  max-height: 230px;
+  overflow-y: auto;
+  border-top: 1px solid #333;
+  padding-top: 0.4rem;
+}
+
+#setlistList li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1b1b1f;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+
+#setlistList button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+/* ====== MOBILE ====== */
+@media (max-width: 600px) {
+  header {
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 0.8rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  button, select {
+    width: 100%;
+  }
+
+  .dropdown-content {
+    position: static;
+    width: 100%;
+    max-height: none;
+    opacity: 1;
+    pointer-events: auto;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+  }
+
+  main {
+    padding: 0.8rem;
+  }
+}
+
+/* ====== PRINT MODE ====== */
 @media print {
   body {
     background: white;
@@ -120,28 +390,4 @@ header {
     font-size: 1.2em;
     break-inside: avoid;
   }
-}
-
-.edit-input {
-  background: #222;
-  color: #fff;
-  border: 1px solid #444;
-  border-radius: 4px;
-  padding: 0.2rem 0.4rem;
-  margin-right: 0.3rem;
-  width: 100px;
-}
-
-.time-input {
-  width: 60px;
-}
-
-#libraryList li {
-  align-items: center;
-  gap: 0.3rem;
-}
-
-#libraryList button {
-  cursor: pointer;
-  font-size: 0.9rem;
 }
