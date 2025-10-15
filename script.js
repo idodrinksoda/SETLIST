@@ -5,46 +5,17 @@ function setDebugStatus(msg) {
     debugStatus.style.display = 'block';
   }
 }
-// ===== Firebase Auth UI =====
-// ===== Firestore Sync =====
+
+// ===== Firebase Auth UI + Firestore Sync (CDN compat) =====
+const auth = firebase.auth();
+const db = firebase.firestore();
+
 const LIBRARY_DOC = 'bandData/library';
 const SETLISTS_DOC = 'bandData/setlists';
 
-async function loadDataFromFirestore() {
-  try {
-    // Realtime listener for library
-    if (window.libraryUnsub) window.libraryUnsub();
-    window.libraryUnsub = window.firebaseFirestore.onSnapshot
-      ? window.firebaseFirestore.onSnapshot(window.doc(window.firebaseFirestore, LIBRARY_DOC), (libSnap) => {
-          library = libSnap.exists() ? libSnap.data().songs || [] : [];
-          renderLibrary();
-        })
-      : null;
+let libraryUnsub = null;
+let setlistsUnsub = null;
 
-    // Realtime listener for setlists
-    if (window.setlistsUnsub) window.setlistsUnsub();
-    window.setlistsUnsub = window.firebaseFirestore.onSnapshot
-      ? window.firebaseFirestore.onSnapshot(window.doc(window.firebaseFirestore, SETLISTS_DOC), (setlistsSnap) => {
-          allSetlists = setlistsSnap.exists() ? setlistsSnap.data().allSetlists || {} : {};
-          currentSetlist = Object.keys(allSetlists)[0] || 'Default';
-          songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
-          renderSetlist();
-          renderDropdown();
-          updateTotal();
-        })
-      : null;
-  } catch (err) {
-    authError.textContent = 'Failed to load data: ' + err.message;
-  }
-
-async function persistFirestore() {
-  try {
-    await window.setDoc(window.doc(window.firebaseFirestore, LIBRARY_DOC), { songs: library });
-    await window.setDoc(window.doc(window.firebaseFirestore, SETLISTS_DOC), { allSetlists });
-  } catch (err) {
-    authError.textContent = 'Failed to save data: ' + err.message;
-  }
-}
 const loginForm = document.getElementById('loginForm');
 const loginEmail = document.getElementById('loginEmail');
 const loginPassword = document.getElementById('loginPassword');
@@ -52,7 +23,6 @@ const userInfo = document.getElementById('userInfo');
 const userEmail = document.getElementById('userEmail');
 const logoutBtn = document.getElementById('logoutBtn');
 const authError = document.getElementById('authError');
-const authSection = document.getElementById('authSection');
 
 function showAppUI(show) {
   document.querySelector('.tab-header').style.display = show ? '' : 'none';
@@ -60,46 +30,82 @@ function showAppUI(show) {
   document.getElementById('setlistView').style.display = show ? '' : 'none';
 }
 
-window.onAuthStateChanged(window.firebaseAuth, user => {
+function attachRealtimeListeners() {
+  if (libraryUnsub) libraryUnsub();
+  if (setlistsUnsub) setlistsUnsub();
+
+  libraryUnsub = db.doc(LIBRARY_DOC).onSnapshot(snapshot => {
+    library = snapshot.exists ? snapshot.data().songs || [] : [];
+    renderLibrary();
+  });
+
+  setlistsUnsub = db.doc(SETLISTS_DOC).onSnapshot(snapshot => {
+    allSetlists = snapshot.exists ? snapshot.data().allSetlists || {} : {};
+    if (!Object.keys(allSetlists).length) {
+      allSetlists = { Default: [] };
+    }
+    if (!allSetlists[currentSetlist]) {
+      currentSetlist = Object.keys(allSetlists)[0];
+    }
+    songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+    renderSetlist();
+    renderDropdown();
+    updateTotal();
+  });
+}
+
+function persistFirestore() {
+  if (!auth.currentUser) return;
+  db.doc(LIBRARY_DOC).set({ songs: library }, { merge: true });
+  db.doc(SETLISTS_DOC).set({ allSetlists }, { merge: true });
+}
+
+auth.onAuthStateChanged(user => {
   setDebugStatus('Auth state changed. User: ' + (user ? user.email : 'none'));
+
   if (user) {
     loginForm.style.display = 'none';
     userInfo.style.display = '';
     userEmail.textContent = user.email;
     authError.textContent = '';
     showAppUI(true);
-    loadDataFromFirestore();
+    attachRealtimeListeners();
   } else {
+    if (libraryUnsub) { libraryUnsub(); libraryUnsub = null; }
+    if (setlistsUnsub) { setlistsUnsub(); setlistsUnsub = null; }
+
     loginForm.style.display = 'block';
     userInfo.style.display = 'none';
     userEmail.textContent = '';
     showAppUI(false);
+
+    library = [];
+    allSetlists = {};
+    songs = [];
   }
 });
 
-loginForm.onsubmit = async (e) => {
+loginForm.addEventListener('submit', e => {
   e.preventDefault();
   authError.textContent = '';
-  try {
-    await window.signInWithEmailAndPassword(window.firebaseAuth, loginEmail.value, loginPassword.value);
-  } catch (err) {
-    authError.textContent = err.message;
-  }
-};
+  auth.signInWithEmailAndPassword(loginEmail.value, loginPassword.value)
+    .catch(err => { authError.textContent = err.message; });
+});
 
-logoutBtn.onclick = async () => {
-  await window.signOut(window.firebaseAuth);
-};
+logoutBtn.addEventListener('click', () => {
+  auth.signOut();
+});
 
-// Force Logout button for testing
 const forceLogoutBtn = document.getElementById('forceLogoutBtn');
 if (forceLogoutBtn) {
-  forceLogoutBtn.onclick = async () => {
-    await window.signOut(window.firebaseAuth);
+  forceLogoutBtn.addEventListener('click', () => {
+    auth.signOut();
     alert('Forced logout. You should now see the login form.');
-  };
+  });
 }
-};
+
+showAppUI(false);
+
 /* ===== Tabs ===== */
 const tabLibrary = document.getElementById('tabLibrary');
 const tabSetlist = document.getElementById('tabSetlist');
@@ -140,12 +146,11 @@ const printBtn = document.getElementById('printBtn');
 const shareBtn = document.getElementById('shareBtn');
 const clearAllBtn = document.getElementById('clearAllBtn');
 
-/* ===== Storage ===== */
-let library = JSON.parse(localStorage.getItem('library') || '[]');
-let allSetlists = JSON.parse(localStorage.getItem('allSetlists') || '{}');
-let currentSetlist = localStorage.getItem('currentSetlist') || 'Default';
-if (!allSetlists[currentSetlist]) allSetlists[currentSetlist] = [];
-let songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+/* ===== Storage (mirrored via Firestore) ===== */
+let library = [];
+let allSetlists = {};
+let currentSetlist = 'Default';
+let songs = [];
 
 function persist() {
   allSetlists[currentSetlist] = songs;
