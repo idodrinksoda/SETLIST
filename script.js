@@ -96,14 +96,6 @@ logoutBtn.addEventListener('click', () => {
   auth.signOut();
 });
 
-const forceLogoutBtn = document.getElementById('forceLogoutBtn');
-if (forceLogoutBtn) {
-  forceLogoutBtn.addEventListener('click', () => {
-    auth.signOut();
-    alert('Forced logout. You should now see the login form.');
-  });
-}
-
 showAppUI(false);
 
 /* ===== Tabs ===== */
