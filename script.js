@@ -1,3 +1,88 @@
+// ===== Firebase Auth UI =====
+// ===== Firestore Sync =====
+const LIBRARY_DOC = 'bandData/library';
+const SETLISTS_DOC = 'bandData/setlists';
+
+async function loadDataFromFirestore() {
+  try {
+    // Realtime listener for library
+    if (window.libraryUnsub) window.libraryUnsub();
+    window.libraryUnsub = window.firebaseFirestore.onSnapshot
+      ? window.firebaseFirestore.onSnapshot(window.doc(window.firebaseFirestore, LIBRARY_DOC), (libSnap) => {
+          library = libSnap.exists() ? libSnap.data().songs || [] : [];
+          renderLibrary();
+        })
+      : null;
+
+    // Realtime listener for setlists
+    if (window.setlistsUnsub) window.setlistsUnsub();
+    window.setlistsUnsub = window.firebaseFirestore.onSnapshot
+      ? window.firebaseFirestore.onSnapshot(window.doc(window.firebaseFirestore, SETLISTS_DOC), (setlistsSnap) => {
+          allSetlists = setlistsSnap.exists() ? setlistsSnap.data().allSetlists || {} : {};
+          currentSetlist = Object.keys(allSetlists)[0] || 'Default';
+          songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+          renderSetlist();
+          renderDropdown();
+          updateTotal();
+        })
+      : null;
+  } catch (err) {
+    authError.textContent = 'Failed to load data: ' + err.message;
+  }
+}
+
+async function persistFirestore() {
+  try {
+    await window.setDoc(window.doc(window.firebaseFirestore, LIBRARY_DOC), { songs: library });
+    await window.setDoc(window.doc(window.firebaseFirestore, SETLISTS_DOC), { allSetlists });
+  } catch (err) {
+    authError.textContent = 'Failed to save data: ' + err.message;
+  }
+}
+const loginForm = document.getElementById('loginForm');
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const userInfo = document.getElementById('userInfo');
+const userEmail = document.getElementById('userEmail');
+const logoutBtn = document.getElementById('logoutBtn');
+const authError = document.getElementById('authError');
+const authSection = document.getElementById('authSection');
+
+function showAppUI(show) {
+  document.querySelector('.tab-header').style.display = show ? '' : 'none';
+  document.getElementById('libraryView').style.display = show ? '' : 'none';
+  document.getElementById('setlistView').style.display = show ? '' : 'none';
+}
+
+window.onAuthStateChanged(window.firebaseAuth, user => {
+  if (user) {
+    loginForm.style.display = 'none';
+    userInfo.style.display = '';
+    userEmail.textContent = user.email;
+    authError.textContent = '';
+    showAppUI(true);
+    loadDataFromFirestore();
+  } else {
+    loginForm.style.display = '';
+    userInfo.style.display = 'none';
+    userEmail.textContent = '';
+    showAppUI(false);
+  }
+});
+
+loginForm.onsubmit = async (e) => {
+  e.preventDefault();
+  authError.textContent = '';
+  try {
+    await window.signInWithEmailAndPassword(window.firebaseAuth, loginEmail.value, loginPassword.value);
+  } catch (err) {
+    authError.textContent = err.message;
+  }
+};
+
+logoutBtn.onclick = async () => {
+  await window.signOut(window.firebaseAuth);
+};
 /* ===== Tabs ===== */
 const tabLibrary = document.getElementById('tabLibrary');
 const tabSetlist = document.getElementById('tabSetlist');
@@ -47,9 +132,7 @@ let songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[current
 
 function persist() {
   allSetlists[currentSetlist] = songs;
-  localStorage.setItem('library', JSON.stringify(library));
-  localStorage.setItem('allSetlists', JSON.stringify(allSetlists));
-  localStorage.setItem('currentSetlist', currentSetlist);
+  persistFirestore();
 }
 
 /* ===== Helpers ===== */

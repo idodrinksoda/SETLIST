@@ -5,8 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SETLIST</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCl2aC0esqBrkAMh1dZoYBX711sctfWc3Q",
+      authDomain: "setlist-2095d.firebaseapp.com",
+      projectId: "setlist-2095d",
+      storageBucket: "setlist-2095d.firebasestorage.app",
+      messagingSenderId: "907520660063",
+      appId: "1:907520660063:web:3e95bdc265a9d72b9201ea"
+    };
+    window.firebaseApp = initializeApp(firebaseConfig);
+    window.firebaseAuth = getAuth();
+    window.firebaseFirestore = getFirestore();
+    window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+    window.signOut = signOut;
+    window.onAuthStateChanged = onAuthStateChanged;
+    window.doc = doc;
+    window.getDoc = getDoc;
+    window.setDoc = setDoc;
+    window.updateDoc = updateDoc;
+    window.collection = collection;
+    window.getDocs = getDocs;
+  </script>
 </head>
 <body>
+  <div id="authSection">
+    <form id="loginForm" style="display:none; margin-bottom:1.5rem;">
+      <input type="email" id="loginEmail" placeholder="Band Gmail" required style="padding:0.5rem; margin-right:0.5rem;" />
+      <input type="password" id="loginPassword" placeholder="Password" required style="padding:0.5rem; margin-right:0.5rem;" />
+      <button type="submit">Login</button>
+    </form>
+    <div id="userInfo" style="display:none; margin-bottom:1.5rem;">
+      <span id="userEmail"></span>
+      <button id="logoutBtn" style="margin-left:1rem;">Logout</button>
+    </div>
+    <div id="authError" style="color:#ff2b6a; margin-bottom:1rem;"></div>
+  </div>
   <header class="tab-header">
     <button id="tabLibrary" class="active">🎵 Library</button>
     <button id="tabSetlist">🎛 Setlist</button>
