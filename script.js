@@ -70,7 +70,7 @@ window.onAuthStateChanged(window.firebaseAuth, user => {
     showAppUI(true);
     loadDataFromFirestore();
   } else {
-    loginForm.style.display = '';
+    loginForm.style.display = 'block';
     userInfo.style.display = 'none';
     userEmail.textContent = '';
     showAppUI(false);
