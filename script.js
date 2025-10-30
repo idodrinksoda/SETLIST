@@ -804,32 +804,14 @@ function renderDropdown() {
     const delBtn = document.createElement('button');
     delBtn.innerHTML = '🗑';
     delBtn.title = 'Delete setlist';
+    delBtn.className = 'delete-setlist-btn';
+    delBtn.dataset.name = name;
     delBtn.style.background = 'none';
     delBtn.style.border = 'none';
     delBtn.style.color = '#ff2b6a';
     delBtn.style.fontSize = '1.1rem';
     delBtn.style.cursor = 'pointer';
     delBtn.style.marginLeft = '0.5rem';
-    delBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (Object.keys(allSetlists).length <= 1) {
-        delBtn.innerHTML = '🚫';
-        setTimeout(() => { delBtn.innerHTML = '🗑'; }, 1500);
-        return;
-      }
-      delete allSetlists[name];
-      // Switch to another setlist if current was deleted
-      if (currentSetlist === name) {
-        const names = Object.keys(allSetlists);
-        currentSetlist = names[0];
-        songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
-      }
-      persist();
-      renderSetlist();
-      renderDropdown();
-      updateTotal();
-      updateSetlistTitle();
-    };
 
     row.appendChild(btn);
     row.appendChild(delBtn);
@@ -922,6 +904,34 @@ document.addEventListener('click', e => {
   if (!setlistDropdown.contains(e.target) && e.target !== setlistDropdownBtn) {
     toggleDropdown(false);
   }
+});
+
+// Delegated handler for delete buttons in the dropdown (more reliable than per-button handlers)
+setlistDropdown.addEventListener('click', (e) => {
+  const del = e.target.closest('.delete-setlist-btn');
+  if (!del) return;
+  e.stopPropagation();
+  const name = del.dataset.name;
+  if (!name) return;
+  if (Object.keys(allSetlists).length <= 1) {
+    // visual feedback on disabled delete
+    del.innerHTML = '🚫';
+    setTimeout(() => { del.innerHTML = '🗑'; }, 1500);
+    return;
+  }
+  // perform deletion
+  delete allSetlists[name];
+  // If current setlist deleted, switch to first available
+  if (currentSetlist === name) {
+    const names = Object.keys(allSetlists);
+    currentSetlist = names[0];
+    songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+  }
+  persist();
+  renderSetlist();
+  renderDropdown();
+  updateTotal();
+  updateSetlistTitle();
 });
 
 // Respond to external hash changes (e.g., pasted URL)
@@ -1017,7 +1027,15 @@ printBtn.onclick = () => {
 
 shareBtn.onclick = async () => {
   console.log('Share button clicked');
-  const text = songs.map(s => s.name).join('\n');
+  // Ensure URL/hash reflects the current set before composing link
+  updateSetlistTitle();
+  // Build shareable text: Title line with total time, then song names
+  const totalSecs = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
+  const mm = Math.floor(totalSecs / 60).toString();
+  const ss = String(totalSecs % 60).padStart(2, '0');
+  const headerLine = `${currentSetlist} — ${mm}:${ss}`;
+  const bodyLines = songs.map(s => s.name).join('\n');
+  const text = bodyLines ? `${headerLine}\n\n${bodyLines}` : headerLine;
   const link = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(currentSetlist)}`;
 
   try {
@@ -1054,7 +1072,8 @@ shareBtn.onclick = async () => {
       shareBtn.style.cursor = 'pointer';
       shareBtn.onclick = async () => {
         try {
-          await navigator.share({ title: 'Setlist', text });
+          // Include the deep link so recipients open the exact setlist
+          await navigator.share({ title: 'Setlist', text, url: link });
           showShareMessage('Setlist shared!');
         } catch {
           showShareMessage('Share canceled or failed.');
