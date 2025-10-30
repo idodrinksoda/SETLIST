@@ -29,8 +29,23 @@
   font-size: 1.6rem;
   font-weight: bold;
   margin-bottom: 1rem;
-  color: #333;
+  color: var(--fg);
   letter-spacing: 0.03em;
+}
+
+#currentSetlistName {
+  color: var(--accent);
+  cursor: text;
+}
+
+.setlist-meta {
+  color: var(--fg);
+  opacity: 0.95;
+  font-weight: 600;
+}
+
+.view-heading #currentSetlistName:hover {
+  text-decoration: underline dotted;
 }
 
 /* GLOBAL */
@@ -130,6 +145,7 @@ button:active { transform: scale(0.97); }
   background: var(--card);
   padding: 0.5rem 0.7rem;
   border-radius: var(--radius);
+  cursor: default;
 }
 
 #libraryList li input {
@@ -146,6 +162,20 @@ button:active { transform: scale(0.97); }
   border: none;
   cursor: pointer;
 }
+
+/* Library drag handle and dragging visuals */
+.lib-item .drag-handle {
+  flex: 0 0 28px;
+  text-align: center;
+  color: var(--muted);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  margin-right: 0.25rem;
+}
+.lib-item .drag-handle:hover { color: var(--fg); }
+.lib-item.dragging .drag-handle { cursor: grabbing; }
+.lib-item.dragging { opacity: 0.55; }
 
 /* SETLIST */
 #setlistView {
@@ -233,12 +263,52 @@ button:active { transform: scale(0.97); }
 .song-item .song-name { text-align: left; }
 .song-item .song-time { text-align: right; flex: 0 0 80px; }
 
+/* Visible drag handle */
+.song-item .drag-handle {
+  flex: 0 0 28px;
+  text-align: center;
+  color: var(--muted);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  margin-right: 0.25rem;
+}
+.song-item .drag-handle:hover { color: var(--fg); }
+.song-item.dragging .drag-handle, .song-item.touch-dragging .drag-handle { cursor: grabbing; }
+
 .delete {
   background: none;
   color: var(--accent);
   font-size: 1.1rem;
   border: none;
   cursor: pointer;
+}
+
+/* Drag-and-drop visual feedback */
+.song-item.dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+
+/* Touch/Pointer drag styles */
+.song-item.touch-dragging {
+  opacity: 0.9;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  cursor: grabbing;
+}
+
+.song-placeholder {
+  background: rgba(255, 43, 106, 0.15);
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+}
+
+/* Subtle drop hint lines for Setlist (faint, neutral) */
+.song-item.drop-above {
+  box-shadow: 0 -1px 0 0 rgba(255,255,255,0.18);
+}
+.song-item.drop-below {
+  box-shadow: 0 1px 0 0 rgba(255,255,255,0.18);
 }
 
 #totalTime {

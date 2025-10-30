@@ -9,6 +9,9 @@ function setDebugStatus(msg) {
 // ===== Firebase Auth UI + Firestore Sync (CDN compat) =====
 const auth = firebase.auth();
 const db = firebase.firestore();
+// Enable offline persistence (best-effort). Ignore if unsupported or in multi-tab conflict.
+try { firebase.firestore().enablePersistence({ synchronizeTabs: true }); }
+catch (e) { console.warn('Firestore persistence not enabled:', e && e.code ? e.code : e); }
 
 const LIBRARY_DOC = 'bandData/library';
 const SETLISTS_DOC = 'bandData/setlists';
@@ -57,13 +60,21 @@ function attachRealtimeListeners() {
     if (!Object.keys(allSetlists).length) {
       allSetlists = { Default: [] };
     }
-    if (!allSetlists[currentSetlist]) {
+    // Honor URL hash if present (create empty set if it doesn't exist yet)
+    const hashName = decodeURIComponent((window.location.hash || '').slice(1));
+    let createdFromHash = false;
+    if (hashName) {
+      if (!allSetlists[hashName]) { allSetlists[hashName] = []; createdFromHash = true; }
+      currentSetlist = hashName;
+    } else if (!allSetlists[currentSetlist]) {
       currentSetlist = Object.keys(allSetlists)[0];
     }
     songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+    updateSetlistTitle();
     renderSetlist();
     renderDropdown();
     updateTotal();
+    if (createdFromHash) persist();
   });
 }
 
@@ -143,6 +154,8 @@ const saveToLibrary = document.getElementById('saveToLibrary');
 const setlist = document.getElementById('setlist');
 const totalTimeEl = document.getElementById('totalTime');
 const songTemplate = document.getElementById('songTemplate');
+const currentSetlistNameEl = document.getElementById('currentSetlistName');
+const currentSetlistMetaEl = document.getElementById('currentSetlistMeta');
 
 const setlistDropdownBtn = document.getElementById('setlistDropdownBtn');
 const setlistDropdown = document.getElementById('setlistDropdown');
@@ -160,6 +173,91 @@ let songs = [];
 function persist() {
   allSetlists[currentSetlist] = songs;
   persistFirestore();
+}
+
+function updateSetlistTitle() {
+  // Update header label
+  if (currentSetlistNameEl) {
+    currentSetlistNameEl.textContent = currentSetlist || '';
+  }
+  // Compute meta (count + total time)
+  if (currentSetlistMetaEl) {
+    const count = songs.length;
+    const totalSecs = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
+    const mm = Math.floor(totalSecs / 60).toString();
+    const ss = String(totalSecs % 60).padStart(2, '0');
+    const plural = count === 1 ? 'song' : 'songs';
+    currentSetlistMetaEl.textContent = count ? `— ${count} ${plural} • ${mm}:${ss}` : '';
+  }
+  // Update dropdown button label to show active setlist
+  if (setlistDropdownBtn) {
+    const isOpen = setlistDropdown.classList.contains('show');
+    setlistDropdownBtn.textContent = `🎛 Setlist: ${currentSetlist || ''} ${isOpen ? '▴' : '▾'}`;
+  }
+  // Reflect current set in the URL hash for easy sharing/navigation
+  const desiredHash = '#' + encodeURIComponent(currentSetlist || '');
+  if (window.location.hash !== desiredHash) {
+    try { window.history.replaceState(null, '', desiredHash); } catch { window.location.hash = desiredHash; }
+  }
+}
+
+// Inline rename for the active setlist name
+function setupSetlistNameEditing() {
+  if (!currentSetlistNameEl) return;
+  const beginEdit = () => {
+    // Avoid starting another edit if an input already exists
+    if (currentSetlistNameEl.dataset.editing === 'yes') return;
+    currentSetlistNameEl.dataset.editing = 'yes';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentSetlist;
+    input.style.background = 'transparent';
+    input.style.color = 'var(--accent)';
+    input.style.border = '1px dashed var(--accent)';
+    input.style.borderRadius = '6px';
+    input.style.padding = '0 0.25rem';
+    input.style.font = 'inherit';
+    input.style.width = Math.max(6, currentSetlist.length + 2) + 'ch';
+
+    const span = currentSetlistNameEl;
+    span.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const finish = (commit) => {
+      const newName = input.value.trim();
+      // Restore span first
+      input.replaceWith(span);
+      span.dataset.editing = '';
+
+      if (!commit) { updateSetlistTitle(); return; }
+      if (!newName || newName === currentSetlist) { updateSetlistTitle(); return; }
+      if (allSetlists[newName]) {
+        alert('A setlist with that name already exists.');
+        updateSetlistTitle();
+        return;
+      }
+      // Rename key in the dictionary
+      allSetlists[newName] = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+      delete allSetlists[currentSetlist];
+      currentSetlist = newName;
+      songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+      persist();
+      renderDropdown();
+      updateTotal();
+      updateSetlistTitle();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+  };
+
+  // Click to edit (also handles double click naturally)
+  currentSetlistNameEl.addEventListener('click', beginEdit);
 }
 
 /* ===== Helpers ===== */
@@ -184,6 +282,13 @@ function renderLibrary() {
   libraryList.innerHTML = '';
   library.forEach((song, i) => {
     const li = document.createElement('li');
+    li.className = 'lib-item';
+    li.setAttribute('draggable', 'true');
+
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.title = 'Drag to reorder';
+    handle.textContent = '≡';
 
     const name = document.createElement('input');
     name.value = song.name;
@@ -206,7 +311,7 @@ function renderLibrary() {
     addBtn.onclick = () => {
       const copy = { name: library[i].name, time: library[i].time };
       songs.push(copy);
-      persist(); renderSetlist(); updateTotal();
+      persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     };
 
     const del = document.createElement('button');
@@ -219,9 +324,176 @@ function renderLibrary() {
     };
 
     controls.append(addBtn, del);
-    li.append(name, time, controls);
+    li.append(handle, name, time, controls);
     libraryList.appendChild(li);
+
+    // Mark drags that originate from the handle (for mouse)
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') {
+        li.dataset.dragFromHandle = '1';
+      }
+    });
+    // Mouse drag (handle-only) for library reordering
+    li.addEventListener('dragstart', (e) => {
+      // Allow only if we started on the handle (set on pointerdown)
+      if (li.dataset.dragFromHandle !== '1') { e.preventDefault(); return; }
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'reorder'); } catch {}
+      li.classList.add('dragging');
+      try { const img = document.createElement('canvas'); img.width = 1; img.height = 1; e.dataTransfer.setDragImage(img, 0, 0); } catch {}
+      startAutoScroll();
+    });
+    li.addEventListener('dragend', () => {
+      delete li.dataset.dragFromHandle;
+      li.classList.remove('dragging');
+      stopAutoScroll();
+      // Rebuild library from DOM (read inputs)
+      library = [...libraryList.children].map(row => ({
+        name: (row.querySelector('input:nth-of-type(1)')?.value || '').trim(),
+        time: formatTime(row.querySelector('input:nth-of-type(2)')?.value || '')
+      }));
+      persist();
+      renderLibrary();
+    });
+
+    // Touch/pen drag start only from handle
+    li.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      if (!e.target || !e.target.closest('.drag-handle')) return;
+      startTouchDragLib(e, li);
+    });
   });
+}
+
+// ===== Library container drag logic =====
+const libDragState = { rafId: 0, lastY: 0 };
+
+function getDragAfterElementLib(container, y) {
+  const elements = [...container.querySelectorAll('.lib-item:not(.dragging)')];
+  let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+  for (const el of elements) {
+    const box = el.getBoundingClientRect();
+    const offset = y - (box.top + box.height / 2);
+    if (offset < 0 && offset > closest.offset) {
+      closest = { offset, element: el };
+    }
+  }
+  return closest.element;
+}
+
+function processLibDragOver() {
+  libDragState.rafId = 0;
+  const dragging = libraryList.querySelector('.dragging');
+  if (!dragging) return;
+  const y = libDragState.lastY;
+  // Clear hints
+  [...libraryList.children].forEach(li => li.classList.remove('drop-above', 'drop-below'));
+  const after = getDragAfterElementLib(libraryList, y);
+  if (after) {
+    if (dragging === after || dragging.nextElementSibling === after) { after.classList.add('drop-above'); return; }
+    after.classList.add('drop-above');
+    libraryList.insertBefore(dragging, after);
+  } else {
+    const last = libraryList.lastElementChild;
+    if (last) last.classList.add('drop-below');
+    if (dragging !== libraryList.lastElementChild) libraryList.appendChild(dragging);
+  }
+}
+
+libraryList.addEventListener('dragenter', e => { e.preventDefault(); });
+libraryList.addEventListener('dragover', e => {
+  e.preventDefault();
+  libDragState.lastY = e.clientY;
+  if (!libDragState.rafId) libDragState.rafId = requestAnimationFrame(processLibDragOver);
+});
+libraryList.addEventListener('drop', e => { e.preventDefault(); });
+libraryList.addEventListener('dragleave', () => {
+  [...libraryList.children].forEach(li => li.classList.remove('drop-above', 'drop-below'));
+});
+
+// Touch fallback for Library
+let libTouchDrag = { active: false, item: null, placeholder: null, grabOffsetY: 0, rectLeft: 0, width: 0 };
+
+function startTouchDragLib(e, item) {
+  if (document.querySelector('.dragging')) return;
+  e.preventDefault();
+  item.setPointerCapture(e.pointerId);
+
+  const rect = item.getBoundingClientRect();
+  libTouchDrag.active = true;
+  libTouchDrag.item = item;
+  libTouchDrag.grabOffsetY = e.clientY - rect.top;
+  libTouchDrag.rectLeft = rect.left;
+  libTouchDrag.width = rect.width;
+
+  const ph = document.createElement('li');
+  ph.className = 'song-placeholder';
+  ph.style.height = rect.height + 'px';
+  libTouchDrag.placeholder = ph;
+  item.parentNode.insertBefore(ph, item);
+
+  item.classList.add('touch-dragging');
+  item.style.position = 'fixed';
+  item.style.left = libTouchDrag.rectLeft + 'px';
+  item.style.width = libTouchDrag.width + 'px';
+  item.style.top = (e.clientY - libTouchDrag.grabOffsetY) + 'px';
+  item.style.zIndex = 10000;
+
+  setTimeout(() => {
+    if (libTouchDrag.active && item.parentNode) {
+      item.parentNode.removeChild(item);
+      document.body.appendChild(item);
+    }
+  }, 0);
+
+  document.body.style.userSelect = 'none';
+  startAutoScroll();
+
+  const move = (ev) => handleTouchMoveLib(ev);
+  const up = (ev) => endTouchDragLib(ev);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up, { once: true });
+  window.addEventListener('pointercancel', up, { once: true });
+  libTouchDrag._move = move; libTouchDrag._up = up;
+}
+
+function handleTouchMoveLib(e) {
+  if (!libTouchDrag.active || !libTouchDrag.item) return;
+  libDragState.lastY = e.clientY;
+  libTouchDrag.item.style.top = (e.clientY - libTouchDrag.grabOffsetY) + 'px';
+
+  const after = getDragAfterElementLib(libraryList, e.clientY);
+  if (after) {
+    if (after !== libTouchDrag.placeholder) libraryList.insertBefore(libTouchDrag.placeholder, after);
+  } else {
+    libraryList.appendChild(libTouchDrag.placeholder);
+  }
+}
+
+function endTouchDragLib(e) {
+  if (!libTouchDrag.active) return;
+  stopAutoScroll();
+  const { item, placeholder } = libTouchDrag;
+  if (placeholder && placeholder.parentNode) {
+    placeholder.parentNode.insertBefore(item, placeholder);
+    placeholder.remove();
+  }
+  item.classList.remove('touch-dragging');
+  item.style.position = '';
+  item.style.left = '';
+  item.style.top = '';
+  item.style.width = '';
+  item.style.zIndex = '';
+  document.body.style.userSelect = '';
+  if (libTouchDrag._move) window.removeEventListener('pointermove', libTouchDrag._move);
+  libTouchDrag = { active: false, item: null, placeholder: null, grabOffsetY: 0, rectLeft: 0, width: 0 };
+
+  // Persist new order from DOM
+  library = [...libraryList.children].map(row => ({
+    name: (row.querySelector('input:nth-of-type(1)')?.value || '').trim(),
+    time: formatTime(row.querySelector('input:nth-of-type(2)')?.value || '')
+  }));
+  persist();
+  renderLibrary();
 }
 
 saveToLibrary.onclick = () => {
@@ -247,33 +519,257 @@ function renderSetlist() {
     // delete ONLY from setlist
     item.querySelector('.delete').onclick = () => {
       songs.splice(i, 1);
-      persist(); renderSetlist(); updateTotal();
+      persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     };
 
     // drag handlers
-    item.addEventListener('dragstart', () => item.classList.add('dragging'));
+    item.addEventListener('dragstart', (e) => {
+      // Improve cross-browser DnD
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'reorder'); } catch {}
+      item.classList.add('dragging');
+      item.setAttribute('aria-grabbed', 'true');
+      // Optional: better drag image
+      try {
+        const img = document.createElement('canvas');
+        img.width = 1; img.height = 1; // transparent pixel
+        e.dataTransfer.setDragImage(img, 0, 0);
+      } catch {}
+      startAutoScroll();
+    });
     item.addEventListener('dragend', () => {
       item.classList.remove('dragging');
-      // write back new order
+      item.setAttribute('aria-grabbed', 'false');
+      stopAutoScroll();
+      // write back new order from DOM
       songs = [...setlist.children].map(li => ({
         name: li.querySelector('.song-name').textContent,
         time: li.querySelector('.song-time').textContent
       }));
-      persist(); renderSetlist(); updateTotal();
+      persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     });
 
     setlist.appendChild(item);
+
+    // Pointer/touch fallback for reordering on devices without native HTML5 DnD
+    item.addEventListener('pointerdown', (e) => startTouchDrag(e, item));
   });
   updateTotal();
 }
 
-setlist.addEventListener('dragover', e => {
-  e.preventDefault();
+// Helper to compute the element after which the dragged item should be placed
+function getDragAfterElement(container, y) {
+  const elements = [...container.querySelectorAll('.song-item:not(.dragging)')];
+  let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+  for (const el of elements) {
+    const box = el.getBoundingClientRect();
+    const offset = y - (box.top + box.height / 2);
+    if (offset < 0 && offset > closest.offset) {
+      closest = { offset, element: el };
+    }
+  }
+  return closest.element;
+}
+
+// Throttled DnD calculations to keep drag smooth
+const dragState = { rafId: 0, lastY: 0, autoScrollId: 0 };
+
+function processDragOver() {
+  dragState.rafId = 0;
   const dragging = document.querySelector('.dragging');
   if (!dragging) return;
-  const after = [...setlist.children].find(li => e.clientY <= li.offsetTop + li.offsetHeight / 2);
-  if (after) setlist.insertBefore(dragging, after);
-  else setlist.appendChild(dragging);
+
+  const y = dragState.lastY;
+  // Clear old hints
+  [...setlist.children].forEach(li => li.classList.remove('drop-above', 'drop-below'));
+
+  const after = getDragAfterElement(setlist, y);
+  if (after) {
+    // Skip DOM move if already in right place
+    if (dragging === after || dragging.nextElementSibling === after) {
+      after.classList.add('drop-above');
+      return;
+    }
+    after.classList.add('drop-above');
+    setlist.insertBefore(dragging, after);
+  } else {
+    // dropping at the end; avoid redundant append
+    const last = setlist.lastElementChild;
+    if (last) last.classList.add('drop-below');
+    if (dragging !== setlist.lastElementChild) setlist.appendChild(dragging);
+  }
+}
+
+function startAutoScroll() {
+  stopAutoScroll();
+  dragState.autoScrollId = setInterval(() => {
+    const edge = 60;
+    const y = dragState.lastY;
+    if (!y) return;
+    const bottomGap = window.innerHeight - y;
+    if (y < edge) {
+      window.scrollBy(0, -12);
+    } else if (bottomGap < edge) {
+      window.scrollBy(0, 12);
+    }
+  }, 16);
+}
+function stopAutoScroll() {
+  if (dragState.autoScrollId) {
+    clearInterval(dragState.autoScrollId);
+    dragState.autoScrollId = 0;
+  }
+}
+
+setlist.addEventListener('dragenter', e => { e.preventDefault(); });
+setlist.addEventListener('dragover', e => {
+  e.preventDefault();
+  dragState.lastY = e.clientY;
+  if (!dragState.rafId) dragState.rafId = requestAnimationFrame(processDragOver);
+});
+setlist.addEventListener('drop', e => { e.preventDefault(); });
+
+setlist.addEventListener('dragleave', () => {
+  // Clean up any hints when leaving the container
+  [...setlist.children].forEach(li => li.classList.remove('drop-above', 'drop-below'));
+});
+
+// Touch/Pointer drag implementation
+let touchDrag = { active: false, item: null, placeholder: null, grabOffsetY: 0, rectLeft: 0, width: 0 };
+
+function startTouchDrag(e, item) {
+  // Only use this path for touch/pen; allow mouse to use native DnD
+  if (e.pointerType === 'mouse') return;
+  // Guard: ignore if already dragging via HTML5 DnD
+  if (document.querySelector('.dragging')) return;
+
+  e.preventDefault();
+  item.setPointerCapture(e.pointerId);
+
+  const rect = item.getBoundingClientRect();
+  touchDrag.active = true;
+  touchDrag.item = item;
+  touchDrag.grabOffsetY = e.clientY - rect.top;
+  touchDrag.rectLeft = rect.left;
+  touchDrag.width = rect.width;
+
+  // Create placeholder
+  const ph = document.createElement('li');
+  ph.className = 'song-placeholder';
+  ph.style.height = rect.height + 'px';
+  touchDrag.placeholder = ph;
+  item.parentNode.insertBefore(ph, item);
+
+  // Elevate dragged item
+  item.classList.add('touch-dragging');
+  item.style.position = 'fixed';
+  item.style.left = touchDrag.rectLeft + 'px';
+  item.style.width = touchDrag.width + 'px';
+  item.style.top = (e.clientY - touchDrag.grabOffsetY) + 'px';
+  item.style.zIndex = 10000;
+
+  // Temporarily remove from flow
+  setTimeout(() => {
+    if (touchDrag.active && item.parentNode) {
+      item.parentNode.removeChild(item);
+      document.body.appendChild(item);
+    }
+  }, 0);
+
+  // Disable text selection while dragging
+  document.body.style.userSelect = 'none';
+
+  startAutoScroll();
+  const move = (ev) => handleTouchMove(ev);
+  const up = (ev) => endTouchDrag(ev);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up, { once: true });
+  // In case of cancel
+  window.addEventListener('pointercancel', up, { once: true });
+
+  // Store handlers for cleanup
+  touchDrag._move = move;
+  touchDrag._up = up;
+}
+
+function handleTouchMove(e) {
+  if (!touchDrag.active || !touchDrag.item) return;
+  dragState.lastY = e.clientY; // reuse auto-scroll logic
+  touchDrag.item.style.top = (e.clientY - touchDrag.grabOffsetY) + 'px';
+
+  // Position placeholder based on pointer
+  const after = getDragAfterElement(setlist, e.clientY);
+  if (after) {
+    if (after !== touchDrag.placeholder) setlist.insertBefore(touchDrag.placeholder, after);
+  } else {
+    setlist.appendChild(touchDrag.placeholder);
+  }
+}
+
+function endTouchDrag(e) {
+  if (!touchDrag.active) return;
+  stopAutoScroll();
+
+  const { item, placeholder } = touchDrag;
+  // Put the item back into the list at placeholder position
+  if (placeholder && placeholder.parentNode) {
+    placeholder.parentNode.insertBefore(item, placeholder);
+    placeholder.remove();
+  }
+  // Reset styles
+  item.classList.remove('touch-dragging');
+  item.style.position = '';
+  item.style.left = '';
+  item.style.top = '';
+  item.style.width = '';
+  item.style.zIndex = '';
+
+  document.body.style.userSelect = '';
+
+  // Cleanup listeners
+  if (touchDrag._move) window.removeEventListener('pointermove', touchDrag._move);
+
+  touchDrag = { active: false, item: null, placeholder: null, grabOffsetY: 0, rectLeft: 0, width: 0 };
+
+  // Persist new order from DOM
+  songs = [...setlist.children].map(li => ({
+    name: li.querySelector('.song-name').textContent,
+    time: li.querySelector('.song-time').textContent
+  }));
+  persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
+}
+
+// Keyboard reordering for accessibility and precision
+setlist.addEventListener('keydown', (e) => {
+  const target = e.target;
+  if (!target || !target.classList || !target.classList.contains('song-item')) return;
+  const index = [...setlist.children].indexOf(target);
+  if (index < 0) return;
+
+  const move = (from, to) => {
+    if (to < 0 || to >= songs.length) return;
+    const [item] = songs.splice(from, 1);
+    songs.splice(to, 0, item);
+    persist();
+    renderSetlist();
+    updateTotal();
+    updateSetlistTitle();
+    // restore focus to the moved item
+    const li = setlist.children[to];
+    if (li) li.focus();
+  };
+
+  if (e.key === 'ArrowUp') { e.preventDefault(); move(index, index - 1); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); move(index, index + 1); }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    songs.splice(index, 1);
+    persist();
+    renderSetlist();
+    updateTotal();
+    updateSetlistTitle();
+    const li = setlist.children[Math.min(index, songs.length - 1)];
+    if (li) li.focus();
+  }
 });
 
 /* ===== Setlist dropdown (load/save/new) ===== */
@@ -288,14 +784,15 @@ function renderDropdown() {
     row.style.justifyContent = 'space-between';
     row.style.padding = '0 0.5rem';
 
-    const btn = document.createElement('button');
-    btn.textContent = name + (name === currentSetlist ? ' ✓' : '');
+  const btn = document.createElement('button');
+  // Dropdown items show the setlist name; include a ✓ for the active one
+  btn.textContent = name + (name === currentSetlist ? ' ✓' : '');
     btn.style.flex = '1';
     btn.onclick = () => {
       // Load selected setlist
       currentSetlist = name;
       songs = Array.isArray(allSetlists[name]) ? [...allSetlists[name]] : [];
-      persist(); renderSetlist(); updateTotal();
+      persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
       toggleDropdown(false);
     };
 
@@ -326,6 +823,7 @@ function renderDropdown() {
       renderSetlist();
       renderDropdown();
       updateTotal();
+      updateSetlistTitle();
     };
 
     row.appendChild(btn);
@@ -358,6 +856,7 @@ function renderDropdown() {
         persist();
         renderDropdown();
         toggleDropdown(false);
+        updateSetlistTitle();
       }
       input.remove();
     };
@@ -385,7 +884,7 @@ function renderDropdown() {
         allSetlists[name] = [];
         currentSetlist = name;
         songs = [];
-        persist(); renderSetlist(); updateTotal();
+        persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
         renderDropdown();
         toggleDropdown(false);
       }
@@ -402,7 +901,7 @@ function renderDropdown() {
 function toggleDropdown(force) {
   const show = force !== undefined ? force : !setlistDropdown.classList.contains('show');
   setlistDropdown.classList.toggle('show', show);
-  setlistDropdownBtn.textContent = show ? '🎛 Select Setlist ▴' : '🎛 Select Setlist ▾';
+  updateSetlistTitle();
 
   // smart positioning (open upward if less space below)
   const rect = setlistDropdownBtn.getBoundingClientRect();
@@ -420,12 +919,26 @@ document.addEventListener('click', e => {
   }
 });
 
+// Respond to external hash changes (e.g., pasted URL)
+window.addEventListener('hashchange', () => {
+  const name = decodeURIComponent((window.location.hash || '').slice(1));
+  if (!name) return;
+  if (!allSetlists[name]) allSetlists[name] = [];
+  currentSetlist = name;
+  songs = Array.isArray(allSetlists[name]) ? [...allSetlists[name]] : [];
+  persist();
+  renderSetlist();
+  renderDropdown();
+  updateTotal();
+  updateSetlistTitle();
+});
+
 /* ===== Buttons ===== */
 clearAllBtn.onclick = () => {
   // Inline clear confirmation: double click to clear
   if (clearAllBtn.dataset.confirm === 'yes') {
     songs = [];
-    persist(); renderSetlist(); updateTotal();
+    persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     clearAllBtn.textContent = '🧹 Clear';
     clearAllBtn.dataset.confirm = '';
   } else {
@@ -440,12 +953,15 @@ clearAllBtn.onclick = () => {
 
 
 printBtn.onclick = () => {
-  const html = songs.map(s => `<div>${s.name}</div>`).join('<br>');
+  const html = songs
+    .map((s, i) => `<div><strong>${i + 1}.</strong> ${s.name} <span style="opacity:.8">(${s.time})</span></div>`)
+    .join('');
   const win = window.open('', '', 'width=800,height=1000');
   win.document.write(`
     <!doctype html><html><head><style>
-      body{font-family:Arial,sans-serif;font-size:22px;line-height:1.6;margin:2rem;columns:2;column-gap:3rem}
-      div{break-inside:avoid;padding:.4rem 0}
+      body{font-family:Arial,sans-serif;font-size:22px;line-height:1.6;margin:2rem;color:#000}
+      div{break-inside:avoid;padding:.35rem 0;border-bottom:1px solid #e5e5e5}
+      strong{margin-right:.4rem}
     </style></head><body>${html}</body></html>`);
   win.document.close();
   win.onload = () => { win.print(); win.onafterprint = () => win.close(); };
@@ -587,3 +1103,5 @@ renderLibrary();
 renderSetlist();
 renderDropdown();
 updateTotal();
+updateSetlistTitle();
+setupSetlistNameEditing();

@@ -22,7 +22,6 @@
   </script>
 </head>
 <body>
-  <div id="debugStatus" style="background:#ffe0e0;color:#b00;padding:0.5rem 1rem;margin-bottom:1rem;display:none;"></div>
   <div id="authSection">
     <form id="loginForm" style="display:none; margin-bottom:1.5rem;">
   <input type="email" id="loginEmail" name="email" placeholder="Band Gmail" required style="padding:0.5rem; margin-right:0.5rem;" />
@@ -54,7 +53,7 @@
 
   <!-- ===== SETLIST VIEW ===== -->
   <main id="setlistView" class="hidden">
-    <h2 class="view-heading">Current Setlist</h2>
+  <h2 class="view-heading"><span id="currentSetlistName"></span> <span id="currentSetlistMeta" class="setlist-meta"></span></h2>
     <div class="setlist-controls">
       <div class="dropdown">
   <button id="setlistDropdownBtn">🎛 Select Setlist ▾</button>
@@ -68,12 +67,13 @@
       </div>
     </div>
 
-    <ul id="setlist"></ul>
+  <ul id="setlist" role="list" aria-label="Setlist (reorder with drag-and-drop or arrow keys)"></ul>
     <div id="totalTime">Total Time: 0 min 0 s</div>
   </main>
 
   <template id="songTemplate">
-    <li class="song-item" draggable="true">
+    <li class="song-item" draggable="true" role="listitem" tabindex="0" aria-grabbed="false">
+      <span class="drag-handle" title="Drag to reorder" aria-label="Drag to reorder" aria-hidden="false">≡</span>
       <span class="song-order"></span>
       <span class="song-name"></span>
       <span class="song-time"></span>
