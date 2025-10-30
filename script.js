@@ -81,7 +81,8 @@ function attachRealtimeListeners() {
 function persistFirestore() {
   if (!auth.currentUser) return;
   db.doc(LIBRARY_DOC).set({ songs: library }, { merge: true });
-  db.doc(SETLISTS_DOC).set({ allSetlists }, { merge: true });
+  // Replace the entire allSetlists map so deleted setlists do not reappear
+  db.doc(SETLISTS_DOC).set({ allSetlists }, { merge: false });
 }
 
 auth.onAuthStateChanged(user => {
@@ -94,6 +95,10 @@ auth.onAuthStateChanged(user => {
     authError.textContent = '';
     showAppUI(true);
     attachRealtimeListeners();
+    // If a setlist hash is present, show the Setlist tab immediately
+    if ((window.location.hash || '').length > 1) {
+      tabSetlist.click();
+    }
   } else {
     if (libraryUnsub) { libraryUnsub(); libraryUnsub = null; }
     if (setlistsUnsub) { setlistsUnsub(); setlistsUnsub = null; }
