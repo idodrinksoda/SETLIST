@@ -954,17 +954,59 @@ clearAllBtn.onclick = () => {
 
 printBtn.onclick = () => {
   const html = songs
-    .map((s, i) => `<div><strong>${i + 1}.</strong> ${s.name} <span style="opacity:.8">(${s.time})</span></div>`)
+    .map((s, i) => `<div class="line"><strong>${i + 1}.</strong> ${s.name} <span class="t">(${s.time})</span></div>`)
     .join('');
   const win = window.open('', '', 'width=800,height=1000');
   win.document.write(`
     <!doctype html><html><head><style>
-      body{font-family:Arial,sans-serif;font-size:22px;line-height:1.6;margin:2rem;color:#000}
-      div{break-inside:avoid;padding:.35rem 0;border-bottom:1px solid #e5e5e5}
+      @page { size: auto; margin: 18mm; }
+      html, body { height: 100%; }
+      body{font-family:Arial,sans-serif;font-size:22px;line-height:1.6;margin:48px;color:#000}
+      .line{break-inside:avoid;padding:.35rem 0;border-bottom:1px solid #e5e5e5}
       strong{margin-right:.4rem}
-    </style></head><body>${html}</body></html>`);
+      .t{opacity:.8}
+    </style></head><body><div id="printContent">${html}</div>
+    <script>
+      (function(){
+        const MIN=12, MAX=36, BASE=22; // px
+        const body=document.body, cont=document.getElementById('printContent');
+        function available(){ return window.innerHeight - 96; } // body margin 48px top+bottom
+        function fitOnce(){
+          const avail=available();
+          const h=cont.scrollHeight;
+          if (!h || !avail) return;
+          const scale=avail / h;
+          let size=Math.max(MIN, Math.min(MAX, Math.floor(BASE*scale)));
+          body.style.fontSize=size+'px';
+        }
+        function refine(){
+          let guard=0;
+          while(guard++<8){
+            const avail=available();
+            const h=cont.scrollHeight;
+            if (h>avail){
+              const cur=parseFloat(getComputedStyle(body).fontSize)||BASE;
+              const next=Math.max(MIN, cur-1);
+              if (next===cur) break;
+              body.style.fontSize=next+'px';
+            } else {
+              // try grow to better fill the page
+              const cur=parseFloat(getComputedStyle(body).fontSize)||BASE;
+              const next=Math.min(MAX, cur+1);
+              body.style.fontSize=next+'px';
+              // if we overflow after growing, step back and stop
+              if (cont.scrollHeight>available()) { body.style.fontSize=cur+'px'; break; }
+            }
+          }
+        }
+        // initial fit then refine, then print
+        fitOnce();
+        setTimeout(() => { refine(); setTimeout(() => { window.print(); window.onafterprint = () => window.close(); }, 50); }, 50);
+      })();
+    </script>
+    </body></html>`);
   win.document.close();
-  win.onload = () => { win.print(); win.onafterprint = () => win.close(); };
+  // onload is handled inside the injected script for sizing and printing
 };
 
 
