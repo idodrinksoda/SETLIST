@@ -367,8 +367,9 @@ function renderLibrary() {
     };
 
     const del = document.createElement('button');
-    del.textContent = 'Delete';
+    del.textContent = 'dlt';
     del.title = 'Delete from library';
+    del.setAttribute('aria-label', 'Delete from library');
     del.onclick = () => {
       library.splice(i, 1);
       persist(); renderLibrary();

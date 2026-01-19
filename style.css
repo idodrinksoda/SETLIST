@@ -454,7 +454,6 @@ button:not(.delete):active {
 .delete:active {
   background: rgba(239, 68, 68, 0.26);
 }
-}
 
 /* Drag-and-drop visual feedback */
 .song-item.dragging {
@@ -510,11 +509,34 @@ button:not(.delete):active {
 
   .song-item {
     padding-inline: 0.55rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 0.25rem;
+  }
+
+  .song-item .drag-handle {
+    flex: 0 0 20px;
+  }
+
+  .song-item .song-order {
+    flex: 0 0 24px;
+    font-size: 0.8rem;
+  }
+
+  .song-item .song-name {
+    flex: 1 1 100%;
   }
 
   .song-item .song-time,
   .song-item .song-tempo {
-    flex: 0 0 72px;
-    font-size: 0.85rem;
+    flex: 0 0 auto;
+    font-size: 0.8rem;
+  }
+
+  .song-item .delete {
+    margin-left: auto;
+    margin-top: 0.1rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.7rem;
   }
 }
