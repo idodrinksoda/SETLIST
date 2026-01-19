@@ -154,6 +154,7 @@ tabSetlist.onclick = () => {
 const libraryList = document.getElementById('libraryList');
 const libSongName = document.getElementById('libSongName');
 const libSongTime = document.getElementById('libSongTime');
+const libSongTempo = document.getElementById('libSongTempo');
 const saveToLibrary = document.getElementById('saveToLibrary');
 
 const setlist = document.getElementById('setlist');
@@ -289,6 +290,9 @@ function renderLibrary() {
     const li = document.createElement('li');
     li.className = 'lib-item';
     li.setAttribute('draggable', 'true');
+    // Main row: drag handle, name, time, info button, controls
+    const mainRow = document.createElement('div');
+    mainRow.className = 'lib-main';
 
     const handle = document.createElement('span');
     handle.className = 'drag-handle';
@@ -296,31 +300,74 @@ function renderLibrary() {
     handle.textContent = '≡';
 
     const name = document.createElement('input');
+    name.className = 'lib-name';
     name.value = song.name;
     name.placeholder = 'Song name';
     name.onblur = () => { library[i].name = name.value.trim(); persist(); };
     name.addEventListener('keydown', e => { if (e.key === 'Enter') name.blur(); });
 
     const time = document.createElement('input');
+    time.className = 'lib-time';
     time.value = song.time;
     time.placeholder = '03:00';
     time.onblur = () => { library[i].time = formatTime(time.value); time.value = library[i].time; persist(); };
     time.addEventListener('keydown', e => { if (e.key === 'Enter') time.blur(); });
 
+    // Info panel (tempo + lyrics)
+    const infoPanel = document.createElement('div');
+    infoPanel.className = 'lib-info';
+
+    const tempoRow = document.createElement('div');
+    tempoRow.className = 'lib-info-row';
+    const tempoLabel = document.createElement('span');
+    tempoLabel.className = 'lib-info-label';
+    tempoLabel.textContent = 'Tempo';
+    const tempo = document.createElement('input');
+    tempo.className = 'lib-tempo';
+    tempo.value = song.tempo || '';
+    tempo.placeholder = '120 BPM';
+    tempo.onblur = () => { library[i].tempo = tempo.value.trim(); persist(); };
+    tempo.addEventListener('keydown', e => { if (e.key === 'Enter') tempo.blur(); });
+    tempoRow.append(tempoLabel, tempo);
+
+    const lyricsLabel = document.createElement('span');
+    lyricsLabel.className = 'lib-info-label';
+    lyricsLabel.textContent = 'Lyrics / Notes';
+    const lyrics = document.createElement('textarea');
+    lyrics.className = 'lib-lyrics';
+    lyrics.value = song.lyrics || '';
+    lyrics.placeholder = 'Lyrics, cues, or notes for this song';
+    lyrics.onblur = () => { library[i].lyrics = lyrics.value.trim(); persist(); };
+
+    infoPanel.append(tempoRow, lyricsLabel, lyrics);
+
     const controls = document.createElement('div');
+    controls.className = 'lib-controls';
+
+    // Info toggle button
+    const infoBtn = document.createElement('button');
+    infoBtn.className = 'lib-info-toggle';
+    if (song.lyrics || song.tempo) infoBtn.classList.add('has-notes');
+    infoBtn.textContent = 'ℹ️';
+    infoBtn.title = 'Show lyrics & tempo';
+    infoBtn.onclick = () => {
+      const open = !infoPanel.classList.contains('open');
+      infoPanel.classList.toggle('open', open);
+    };
 
     // ➕ add to current setlist (push a COPY to avoid shared references)
     const addBtn = document.createElement('button');
     addBtn.textContent = '➕';
     addBtn.title = 'Add to current setlist';
     addBtn.onclick = () => {
-      const copy = { name: library[i].name, time: library[i].time };
+      const src = library[i] || {};
+      const copy = { name: src.name, time: src.time, tempo: src.tempo, lyrics: src.lyrics };
       songs.push(copy);
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     };
 
     const del = document.createElement('button');
-    del.textContent = '🗑';
+    del.textContent = 'Delete';
     del.title = 'Delete from library';
     del.onclick = () => {
       library.splice(i, 1);
@@ -328,8 +375,9 @@ function renderLibrary() {
       // Do NOT touch songs; setlist remains intact
     };
 
-    controls.append(addBtn, del);
-    li.append(handle, name, time, controls);
+    controls.append(infoBtn, addBtn, del);
+    mainRow.append(handle, name, time, controls);
+    li.append(mainRow, infoPanel);
     libraryList.appendChild(li);
 
     // Mark drags that originate from the handle (for mouse)
@@ -353,8 +401,10 @@ function renderLibrary() {
       stopAutoScroll();
       // Rebuild library from DOM (read inputs)
       library = [...libraryList.children].map(row => ({
-        name: (row.querySelector('input:nth-of-type(1)')?.value || '').trim(),
-        time: formatTime(row.querySelector('input:nth-of-type(2)')?.value || '')
+        name: (row.querySelector('.lib-name')?.value || '').trim(),
+        time: formatTime(row.querySelector('.lib-time')?.value || ''),
+        tempo: (row.querySelector('.lib-tempo')?.value || '').trim(),
+        lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim()
       }));
       persist();
       renderLibrary();
@@ -494,8 +544,10 @@ function endTouchDragLib(e) {
 
   // Persist new order from DOM
   library = [...libraryList.children].map(row => ({
-    name: (row.querySelector('input:nth-of-type(1)')?.value || '').trim(),
-    time: formatTime(row.querySelector('input:nth-of-type(2)')?.value || '')
+    name: (row.querySelector('.lib-name')?.value || '').trim(),
+    time: formatTime(row.querySelector('.lib-time')?.value || ''),
+    tempo: (row.querySelector('.lib-tempo')?.value || '').trim(),
+    lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim()
   }));
   persist();
   renderLibrary();
@@ -504,9 +556,25 @@ function endTouchDragLib(e) {
 saveToLibrary.onclick = () => {
   const n = libSongName.value.trim();
   let t = formatTime(libSongTime.value || '03:00');
+  let tempo = libSongTempo.value.trim();
   if (!n) return;
-  library.push({ name: n, time: t });
-  libSongName.value = ''; libSongTime.value = '';
+  // If a song with this name already exists in the library, update it
+  const existingIndex = library.findIndex(s => (s.name || '').toLowerCase() === n.toLowerCase());
+
+  if (existingIndex !== -1) {
+    // Update only the fields the user actually provided; keep others as-is
+    if (libSongTime.value.trim()) {
+      library[existingIndex].time = t;
+    }
+    if (tempo) {
+      library[existingIndex].tempo = tempo;
+    }
+    // Optionally also normalize the name casing to the latest input
+    library[existingIndex].name = n;
+  } else {
+    library.push({ name: n, time: t, tempo: tempo });
+  }
+  libSongName.value = ''; libSongTime.value = ''; libSongTempo.value = '';
   persist(); renderLibrary();
 };
 
@@ -520,6 +588,7 @@ function renderSetlist() {
     item.querySelector('.song-order').textContent = i + 1;
     item.querySelector('.song-name').textContent  = song.name;
     item.querySelector('.song-time').textContent  = song.time;
+    item.querySelector('.song-tempo').textContent = song.tempo || '';
 
     // delete ONLY from setlist
     item.querySelector('.delete').onclick = () => {
@@ -548,15 +617,23 @@ function renderSetlist() {
       // write back new order from DOM
       songs = [...setlist.children].map(li => ({
         name: li.querySelector('.song-name').textContent,
-        time: li.querySelector('.song-time').textContent
+        time: li.querySelector('.song-time').textContent,
+        tempo: li.querySelector('.song-tempo').textContent
       }));
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     });
 
     setlist.appendChild(item);
 
-    // Pointer/touch fallback for reordering on devices without native HTML5 DnD
-    item.addEventListener('pointerdown', (e) => startTouchDrag(e, item));
+    // Pointer/touch fallback for reordering on devices without native HTML5 DnD.
+    // For touch, only start drag when the user grabs the handle so taps on
+    // the delete button (or general scrolling) aren't hijacked by drag logic.
+    item.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return; // mouse uses native DnD
+      const onHandle = e.target && e.target.closest('.drag-handle');
+      if (!onHandle) return;
+      startTouchDrag(e, item);
+    });
   });
   updateTotal();
 }
@@ -738,7 +815,8 @@ function endTouchDrag(e) {
   // Persist new order from DOM
   songs = [...setlist.children].map(li => ({
     name: li.querySelector('.song-name').textContent,
-    time: li.querySelector('.song-time').textContent
+    time: li.querySelector('.song-time').textContent,
+    tempo: li.querySelector('.song-tempo').textContent
   }));
   persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
 }
@@ -802,7 +880,7 @@ function renderDropdown() {
     };
 
     const delBtn = document.createElement('button');
-    delBtn.innerHTML = '🗑';
+    delBtn.textContent = 'Delete';
     delBtn.title = 'Delete setlist';
     delBtn.className = 'delete-setlist-btn';
     delBtn.dataset.name = name;
@@ -969,7 +1047,10 @@ clearAllBtn.onclick = () => {
 
 printBtn.onclick = () => {
   const html = songs
-    .map((s, i) => `<div class="line"><strong>${i + 1}.</strong> ${s.name} <span class="t">(${s.time})</span></div>`)
+    .map((s, i) => {
+      const tempoText = s.tempo ? ` <span class="tempo">${s.tempo}</span>` : '';
+      return `<div class="line"><strong>${i + 1}.</strong> ${s.name}${tempoText} <span class="t">(${s.time})</span></div>`;
+    })
     .join('');
   const win = window.open('', '', 'width=800,height=1000');
   win.document.write(`
@@ -980,6 +1061,7 @@ printBtn.onclick = () => {
       .line{break-inside:avoid;padding:.35rem 0;border-bottom:1px solid #e5e5e5}
       strong{margin-right:.4rem}
       .t{opacity:.8}
+      .tempo{opacity:.6;font-size:.85em;margin-left:.5rem}
     </style></head><body><div id="printContent">${html}</div>
     <script>
       (function(){

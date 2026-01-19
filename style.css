@@ -15,27 +15,34 @@
   background: #ff4f84;
 }
 :root {
-  --bg: #0b0b0d;
-  --card: #16161a;
-  --fg: #f5f5f7;
-  --muted: #a1a1aa;
-  --accent: #ff2b6a;
-  --radius: 12px;
-  --shadow: 0 4px 14px rgba(0,0,0,0.4);
+  --bg: radial-gradient(circle at top, #141822 0%, #050608 55%, #020305 100%);
+  --card: rgba(10, 11, 16, 0.96);
+  --fg: #f5f7fb;
+  --muted: #9ca3af;
+  --accent: #3b82f6; /* clinical blue */
+  --accent-soft: rgba(59, 130, 246, 0.22);
+  --radius: 14px;
+  --shadow: 0 16px 40px rgba(0,0,0,0.7);
+  --border-subtle: rgba(148, 163, 184, 0.25);
 }
 
 /* View Headings */
 .view-heading {
-  font-size: 1.6rem;
-  font-weight: bold;
+  font-size: 1.4rem;
+  font-weight: 650;
   margin-bottom: 1rem;
   color: var(--fg);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.9;
 }
 
 #currentSetlistName {
   color: var(--accent);
   cursor: text;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 43, 106, 0.08);
 }
 
 .setlist-meta {
@@ -54,33 +61,53 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  max-width: 750px;
+  max-width: 840px;
   margin-inline: auto;
-  padding: 1rem;
+  padding: 1.25rem 1.25rem 2.5rem;
+  box-sizing: border-box;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(148, 163, 184, 0.18), transparent 55%),
+    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.14), transparent 55%);
+  mix-blend-mode: screen;
+  opacity: 0.75;
+  z-index: -1;
 }
 
 /* TABS */
 .tab-header {
-  display: flex;
+  display: inline-flex;
   justify-content: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.25rem;
+  margin-bottom: 1.2rem;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 18, 0.85);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
 }
 
 .tab-header button {
   background: transparent;
   color: var(--muted);
-  font-size: 1.1rem;
+  font-size: 0.96rem;
   border: none;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
-  padding: 0.5rem 1rem;
-  transition: color 0.2s ease;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
 }
 
 .tab-header button.active {
   color: var(--fg);
-  border-bottom: 2px solid var(--accent);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(125, 211, 252, 0.95));
+  transform: translateY(-0.5px);
 }
 
 /* SHARED STYLES */
@@ -93,10 +120,15 @@ button {
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-button:hover { background: #ff4f84; }
-button:active { transform: scale(0.97); }
+button:not(.delete):hover { background: #2563eb; }
+button:not(.delete):active {
+  transform: scale(0.97);
+  filter: brightness(1.08);
+}
 
 .hidden {
   display: none !important;
@@ -112,6 +144,11 @@ button:active { transform: scale(0.97); }
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.1rem 1rem 1.2rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-subtle);
 }
 
 .library-controls {
@@ -121,13 +158,26 @@ button:active { transform: scale(0.97); }
 }
 
 .library-controls input {
-  background: #1c1c20;
+  background: #111118;
   color: white;
-  border: 1px solid #444;
-  border-radius: var(--radius);
-  padding: 0.5rem;
+  border: 1px solid #343444;
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
   flex: 1;
   min-width: 120px;
+  font-size: 0.9rem;
+}
+
+.library-controls input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+#saveToLibrary {
+  white-space: nowrap;
+  border-radius: 999px;
+  padding-inline: 1.1rem;
 }
 
 #libraryList {
@@ -140,27 +190,130 @@ button:active { transform: scale(0.97); }
 
 #libraryList li {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--card);
-  padding: 0.5rem 0.7rem;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: linear-gradient(145deg, rgba(20, 20, 32, 0.96), rgba(13, 13, 22, 0.96));
+  padding: 0.55rem 0.75rem 0.6rem;
   border-radius: var(--radius);
   cursor: default;
+  border: 1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 13px 32px rgba(0,0,0,0.55);
+  backdrop-filter: blur(18px);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease, background 0.18s ease;
 }
 
-#libraryList li input {
+#libraryList li:hover {
+  border-color: rgba(255,255,255,0.09);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.7);
+}
+
+#libraryList li:active {
+  transform: translateY(1px);
+}
+/* Library main row (name, time, controls) */
+.lib-main {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+#libraryList li input.lib-name,
+#libraryList li input.lib-time {
   background: transparent;
   color: white;
   border: none;
-  width: 40%;
+  font-size: 0.95rem;
+}
+
+#libraryList li input.lib-name {
+  flex: 1;
+  min-width: 0;
+}
+
+#libraryList li input.lib-time {
+  width: 4.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.lib-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 #libraryList button {
   background: none;
   color: var(--accent);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   border: none;
   cursor: pointer;
+  padding: 0.15rem 0.35rem;
+}
+
+.lib-info-toggle {
+  color: var(--muted);
+}
+
+.lib-info-toggle.has-notes {
+  color: var(--accent);
+}
+
+/* Library info panel (tempo + lyrics) */
+.lib-info {
+  display: none;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.35rem 0.2rem 0 2.1rem; /* indent under handle */
+  border-top: 1px solid #2a2a30;
+  font-size: 0.9rem;
+  color: var(--muted);
+  max-height: 0;
+  opacity: 0;
+  transform-origin: top;
+  transition: max-height 0.2s ease-out, opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+
+.lib-info.open {
+  display: flex;
+  max-height: 260px;
+  opacity: 1;
+  transform: translateY(0px);
+}
+
+.lib-info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.lib-info-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.lib-info input.lib-tempo {
+  background: #111118;
+  color: var(--fg);
+  border-radius: 8px;
+  border: 1px solid #333;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.8rem;
+  max-width: 7rem;
+}
+
+.lib-info textarea.lib-lyrics {
+  background: #111118;
+  color: var(--fg);
+  border-radius: 8px;
+  border: 1px solid #333;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  min-height: 2.6rem;
+  resize: vertical;
 }
 
 /* Library drag handle and dragging visuals */
@@ -181,8 +334,10 @@ button:active { transform: scale(0.97); }
 #setlistView {
   background: var(--card);
   border-radius: var(--radius);
-  padding: 1rem;
+  padding: 1.1rem 1.1rem 1.15rem;
   box-shadow: var(--shadow);
+  border: 1px solid var(--border-subtle);
+  margin-top: 1.2rem;
 }
 
 .setlist-controls {
@@ -248,10 +403,12 @@ button:active { transform: scale(0.97); }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #1c1c20;
+  background: linear-gradient(135deg, #171720, #101018);
   border-radius: var(--radius);
   padding: 0.5rem 0.7rem;
   cursor: grab;
+  border: 1px solid rgba(255,255,255,0.03);
+  transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease, border-color 0.18s ease;
 }
 
 .song-item span {
@@ -262,6 +419,7 @@ button:active { transform: scale(0.97); }
 .song-item .song-order { flex: 0 0 40px; color: var(--muted); text-align: center; }
 .song-item .song-name { text-align: left; }
 .song-item .song-time { text-align: right; flex: 0 0 80px; }
+.song-item .song-tempo { text-align: right; flex: 0 0 80px; color: var(--muted); font-size: 0.9rem; }
 
 /* Visible drag handle */
 .song-item .drag-handle {
@@ -277,11 +435,25 @@ button:active { transform: scale(0.97); }
 .song-item.dragging .drag-handle, .song-item.touch-dragging .drag-handle { cursor: grabbing; }
 
 .delete {
-  background: none;
-  color: var(--accent);
-  font-size: 1.1rem;
-  border: none;
+  background: rgba(239, 68, 68, 0.08);
+  color: #fca5a5;
+  font-size: 0.8rem;
+  border: 1px solid rgba(239, 68, 68, 0.7);
   cursor: pointer;
+  padding: 0.35rem 0.7rem; /* larger tap target on mobile */
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.delete:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.delete:active {
+  background: rgba(239, 68, 68, 0.26);
+}
 }
 
 /* Drag-and-drop visual feedback */
@@ -298,7 +470,7 @@ button:active { transform: scale(0.97); }
 }
 
 .song-placeholder {
-  background: rgba(255, 43, 106, 0.15);
+  background: rgba(59, 130, 246, 0.14);
   border: 2px dashed var(--accent);
   border-radius: var(--radius);
 }
@@ -320,6 +492,29 @@ button:active { transform: scale(0.97); }
 
 /* MOBILE */
 @media (max-width: 600px) {
-  .setlist-controls { flex-direction: column; align-items: stretch; }
+  body {
+    padding: 0.9rem 0.75rem 2.2rem;
+  }
+
+  #libraryView,
+  #setlistView {
+    padding-inline: 0.85rem;
+  }
+
+  .setlist-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .dropdown-content { width: 100%; }
+
+  .song-item {
+    padding-inline: 0.55rem;
+  }
+
+  .song-item .song-time,
+  .song-item .song-tempo {
+    flex: 0 0 72px;
+    font-size: 0.85rem;
+  }
 }

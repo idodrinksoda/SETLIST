@@ -46,6 +46,7 @@
     <div class="library-controls">
       <input type="text" id="libSongName" placeholder="Song name" />
       <input type="text" id="libSongTime" placeholder="03:00" />
+      <input type="text" id="libSongTempo" placeholder="120 BPM" />
       <button id="saveToLibrary">＋ Add Song</button>
     </div>
     <ul id="libraryList"></ul>
@@ -77,7 +78,8 @@
       <span class="song-order"></span>
       <span class="song-name"></span>
       <span class="song-time"></span>
-      <button class="delete">🗑</button>
+      <span class="song-tempo"></span>
+      <button class="delete" aria-label="Delete song">Delete</button>
     </li>
   </template>
 
