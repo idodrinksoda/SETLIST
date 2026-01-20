@@ -287,11 +287,6 @@ button:not(.delete):active {
   gap: 0.35rem;
 }
 
-/* Time row inside Library info – only shown on mobile */
-.lib-info-row.lib-time-row {
-  display: none;
-}
-
 .lib-info-label {
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -513,6 +508,25 @@ button:not(.delete):active {
   #libraryView,
   #setlistView {
     padding-inline: 0.85rem;
+  }
+
+  /* Library: stack name and time so full names are visible */
+  .lib-main {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  #libraryList li input.lib-name {
+    flex: 1 1 100%;
+  }
+
+  #libraryList li input.lib-time {
+    flex: 0 0 100%;
+    margin-left: 2.1rem; /* align under name, after handle */
+    margin-top: 0.15rem;
+    text-align: left;
+    font-size: 0.8rem;
+    color: var(--muted);
   }
 
   .setlist-controls {
