@@ -49,27 +49,31 @@ function attachRealtimeListeners() {
 
   setlistsUnsub = db.doc(SETLISTS_DOC).onSnapshot(snapshot => {
     if (!snapshot.exists) {
-      db.doc(SETLISTS_DOC).set({ allSetlists: { Default: [] } });
-      allSetlists = { Default: [] };
+      db.doc(SETLISTS_DOC).set({ allSetlists: {} });
+      allSetlists = {};
     } else {
       allSetlists = snapshot.data().allSetlists || {};
-      if (!Object.keys(allSetlists).length) {
-        allSetlists = { Default: [] };
-      }
-    }
-    if (!Object.keys(allSetlists).length) {
-      allSetlists = { Default: [] };
     }
     // Honor URL hash if present (create empty set if it doesn't exist yet)
     const hashName = decodeURIComponent((window.location.hash || '').slice(1));
     let createdFromHash = false;
+    let targetSet = '';
+
     if (hashName) {
       if (!allSetlists[hashName]) { allSetlists[hashName] = []; createdFromHash = true; }
-      currentSetlist = hashName;
-    } else if (!allSetlists[currentSetlist]) {
-      currentSetlist = Object.keys(allSetlists)[0];
+      targetSet = hashName;
+    } else if (currentSetlist && allSetlists[currentSetlist]) {
+      // Reuse the last selected setlist if it still exists
+      targetSet = currentSetlist;
+    } else {
+      // No hash and no prior valid selection: start with no active setlist
+      targetSet = '';
     }
-    songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+
+    currentSetlist = targetSet;
+    songs = currentSetlist && Array.isArray(allSetlists[currentSetlist])
+      ? [...allSetlists[currentSetlist]]
+      : [];
     updateSetlistTitle();
     renderSetlist();
     renderDropdown();
@@ -95,10 +99,6 @@ auth.onAuthStateChanged(user => {
     authError.textContent = '';
     showAppUI(true);
     attachRealtimeListeners();
-    // If a setlist hash is present, show the Setlist tab immediately
-    if ((window.location.hash || '').length > 1) {
-      tabSetlist.click();
-    }
   } else {
     if (libraryUnsub) { libraryUnsub(); libraryUnsub = null; }
     if (setlistsUnsub) { setlistsUnsub(); setlistsUnsub = null; }
@@ -154,7 +154,7 @@ tabSetlist.onclick = () => {
 const libraryList = document.getElementById('libraryList');
 const libSongName = document.getElementById('libSongName');
 const libSongTime = document.getElementById('libSongTime');
-const libSongTempo = document.getElementById('libSongTempo');
+const libSongTempo = document.getElementById('libSongTempo'); // may be absent; tempo is mainly edited in the info panel
 const saveToLibrary = document.getElementById('saveToLibrary');
 
 const setlist = document.getElementById('setlist');
@@ -173,18 +173,22 @@ const clearAllBtn = document.getElementById('clearAllBtn');
 /* ===== Storage (mirrored via Firestore) ===== */
 let library = [];
 let allSetlists = {};
-let currentSetlist = 'Default';
+let currentSetlist = '';
 let songs = [];
 
 function persist() {
-  allSetlists[currentSetlist] = songs;
+  // Only persist a named setlist; when no setlist is selected,
+  // we still persist the library but leave allSetlists as-is.
+  if (currentSetlist) {
+    allSetlists[currentSetlist] = songs;
+  }
   persistFirestore();
 }
 
 function updateSetlistTitle() {
   // Update header label
   if (currentSetlistNameEl) {
-    currentSetlistNameEl.textContent = currentSetlist || '';
+    currentSetlistNameEl.textContent = currentSetlist || 'Select a setlist';
   }
   // Compute meta (count + total time)
   if (currentSetlistMetaEl) {
@@ -198,12 +202,21 @@ function updateSetlistTitle() {
   // Update dropdown button label to show active setlist
   if (setlistDropdownBtn) {
     const isOpen = setlistDropdown.classList.contains('show');
-    setlistDropdownBtn.textContent = `🎛 Setlist: ${currentSetlist || ''} ${isOpen ? '▴' : '▾'}`;
+    const label = currentSetlist || 'Select setlist';
+    setlistDropdownBtn.textContent = `🎛 ${label} ${isOpen ? '▴' : '▾'}`;
   }
   // Reflect current set in the URL hash for easy sharing/navigation
-  const desiredHash = '#' + encodeURIComponent(currentSetlist || '');
-  if (window.location.hash !== desiredHash) {
-    try { window.history.replaceState(null, '', desiredHash); } catch { window.location.hash = desiredHash; }
+  if (currentSetlist) {
+    const desiredHash = '#' + encodeURIComponent(currentSetlist);
+    if (window.location.hash !== desiredHash) {
+      try { window.history.replaceState(null, '', desiredHash); } catch { window.location.hash = desiredHash; }
+    }
+  } else {
+    // Clear hash when no setlist is selected
+    if (window.location.hash) {
+      try { window.history.replaceState(null, '', window.location.pathname); }
+      catch { window.location.hash = ''; }
+    }
   }
 }
 
@@ -557,7 +570,7 @@ function endTouchDragLib(e) {
 saveToLibrary.onclick = () => {
   const n = libSongName.value.trim();
   let t = formatTime(libSongTime.value || '03:00');
-  let tempo = libSongTempo.value.trim();
+  const tempo = libSongTempo ? libSongTempo.value.trim() : '';
   if (!n) return;
   // If a song with this name already exists in the library, update it
   const existingIndex = library.findIndex(s => (s.name || '').toLowerCase() === n.toLowerCase());
@@ -573,9 +586,11 @@ saveToLibrary.onclick = () => {
     // Optionally also normalize the name casing to the latest input
     library[existingIndex].name = n;
   } else {
-    library.push({ name: n, time: t, tempo: tempo });
+    library.push({ name: n, time: t, tempo });
   }
-  libSongName.value = ''; libSongTime.value = ''; libSongTempo.value = '';
+  libSongName.value = '';
+  libSongTime.value = '';
+  if (libSongTempo) libSongTempo.value = '';
   persist(); renderLibrary();
 };
 
@@ -992,19 +1007,22 @@ setlistDropdown.addEventListener('click', (e) => {
   e.stopPropagation();
   const name = del.dataset.name;
   if (!name) return;
-  if (Object.keys(allSetlists).length <= 1) {
-    // visual feedback on disabled delete
-    del.innerHTML = '🚫';
-    setTimeout(() => { del.innerHTML = '🗑'; }, 1500);
-    return;
-  }
+  const countBefore = Object.keys(allSetlists).length;
+
   // perform deletion
   delete allSetlists[name];
-  // If current setlist deleted, switch to first available
-  if (currentSetlist === name) {
+
+  if (countBefore <= 1) {
+    // Deleted the last remaining setlist: go to a blank state
+    currentSetlist = '';
+    songs = [];
+  } else if (currentSetlist === name) {
+    // If the active setlist was deleted, switch to the first available
     const names = Object.keys(allSetlists);
-    currentSetlist = names[0];
-    songs = Array.isArray(allSetlists[currentSetlist]) ? [...allSetlists[currentSetlist]] : [];
+    currentSetlist = names[0] || '';
+    songs = currentSetlist && Array.isArray(allSetlists[currentSetlist])
+      ? [...allSetlists[currentSetlist]]
+      : [];
   }
   persist();
   renderSetlist();

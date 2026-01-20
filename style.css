@@ -445,24 +445,22 @@ button:not(.delete):active {
 .song-item.dragging .drag-handle, .song-item.touch-dragging .drag-handle { cursor: grabbing; }
 
 .delete {
-  background: rgba(239, 68, 68, 0.08);
-  color: #fca5a5;
-  font-size: 0.8rem;
-  border: 1px solid rgba(239, 68, 68, 0.7);
+  background: none;
+  color: var(--accent);
+  font-size: 1.05rem;
+  border: none;
   cursor: pointer;
-  padding: 0.35rem 0.7rem; /* larger tap target on mobile */
+  padding: 0.15rem 0.35rem;
   border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
 }
 
 .delete:hover {
-  background: rgba(239, 68, 68, 0.18);
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .delete:active {
-  background: rgba(239, 68, 68, 0.26);
+  background: rgba(59, 130, 246, 0.16);
+  transform: scale(0.97);
 }
 
 /* Drag-and-drop visual feedback */
@@ -510,28 +508,23 @@ button:not(.delete):active {
     padding-inline: 0.85rem;
   }
 
-  /* Library: stack name and time so full names are visible */
+  /* Library: keep one-row layout but tighten spacing on small screens */
   .lib-main {
-    flex-wrap: wrap;
-    align-items: flex-start;
+    gap: 0.3rem;
   }
 
   #libraryList li input.lib-name {
-    flex: 1 1 auto; /* share row with buttons */
+    font-size: 0.9rem;
   }
 
   #libraryList li input.lib-time {
-    flex: 0 0 100%;
-    order: 1;              /* force onto its own line below */
-    margin: 0.15rem 0 0 0;
-    text-align: left;
-    font-size: 0.9rem;
-    color: var(--muted);
-    display: block;
+    width: 3.4rem;
+    font-size: 0.8rem;
   }
 
-  #libraryList li .lib-controls {
-    order: 0;              /* keep controls beside the name */
+  #libraryList li .lib-controls button {
+    font-size: 0.9rem;
+    padding: 0.1rem 0.25rem;
   }
 
   .setlist-controls {
@@ -540,15 +533,6 @@ button:not(.delete):active {
   }
 
   .dropdown-content { width: 100%; }
-
-  /* Library: hide inline time, show time inside info panel */
-  .lib-main input.lib-time-main {
-    display: none;
-  }
-
-  .lib-info-row.lib-time-row {
-    display: flex;
-  }
 
   .song-item {
     padding-inline: 0.55rem;
@@ -579,7 +563,7 @@ button:not(.delete):active {
   .song-item .delete {
     margin-left: auto;
     margin-top: 0.1rem;
-    padding: 0.25rem 0.6rem;
-    font-size: 0.7rem;
+    padding: 0.1rem 0.25rem; /* match Library mobile buttons */
+    font-size: 0.9rem;
   }
 }
