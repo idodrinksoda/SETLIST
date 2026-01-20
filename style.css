@@ -517,16 +517,21 @@ button:not(.delete):active {
   }
 
   #libraryList li input.lib-name {
-    flex: 1 1 100%;
+    flex: 1 1 auto; /* share row with buttons */
   }
 
   #libraryList li input.lib-time {
     flex: 0 0 100%;
+    order: 1;              /* force onto its own line below */
     margin: 0.15rem 0 0 0;
     text-align: left;
     font-size: 0.9rem;
     color: var(--muted);
     display: block;
+  }
+
+  #libraryList li .lib-controls {
+    order: 0;              /* keep controls beside the name */
   }
 
   .setlist-controls {
