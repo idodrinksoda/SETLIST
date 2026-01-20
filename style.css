@@ -522,11 +522,11 @@ button:not(.delete):active {
 
   #libraryList li input.lib-time {
     flex: 0 0 100%;
-    margin-left: 2.1rem; /* align under name, after handle */
-    margin-top: 0.15rem;
+    margin: 0.15rem 0 0 0;
     text-align: left;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     color: var(--muted);
+    display: block;
   }
 
   .setlist-controls {
