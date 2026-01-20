@@ -290,7 +290,7 @@ function renderLibrary() {
     const li = document.createElement('li');
     li.className = 'lib-item';
     li.setAttribute('draggable', 'true');
-    // Main row: drag handle, name, time, info button, controls
+    // Main row: drag handle, name, time (desktop), info button, controls
     const mainRow = document.createElement('div');
     mainRow.className = 'lib-main';
 
@@ -305,17 +305,40 @@ function renderLibrary() {
     name.placeholder = 'Song name';
     name.onblur = () => { library[i].name = name.value.trim(); persist(); };
     name.addEventListener('keydown', e => { if (e.key === 'Enter') name.blur(); });
+    // Time inputs: one in the main row (desktop), one in info (mobile)
+    let timeMain, timeInfo;
 
-    const time = document.createElement('input');
-    time.className = 'lib-time';
-    time.value = song.time;
-    time.placeholder = '03:00';
-    time.onblur = () => { library[i].time = formatTime(time.value); time.value = library[i].time; persist(); };
-    time.addEventListener('keydown', e => { if (e.key === 'Enter') time.blur(); });
+    const syncTime = (raw) => {
+      const normalized = formatTime(raw);
+      library[i].time = normalized;
+      if (timeMain) timeMain.value = normalized;
+      if (timeInfo) timeInfo.value = normalized;
+      persist();
+    };
 
-    // Info panel (tempo + lyrics)
+    timeMain = document.createElement('input');
+    timeMain.className = 'lib-time lib-time-main';
+    timeMain.value = song.time;
+    timeMain.placeholder = '03:00';
+    timeMain.onblur = () => syncTime(timeMain.value);
+    timeMain.addEventListener('keydown', e => { if (e.key === 'Enter') timeMain.blur(); });
+
+    // Info panel (time + tempo + lyrics)
     const infoPanel = document.createElement('div');
     infoPanel.className = 'lib-info';
+
+    const timeRow = document.createElement('div');
+    timeRow.className = 'lib-info-row lib-time-row';
+    const timeLabel = document.createElement('span');
+    timeLabel.className = 'lib-info-label';
+    timeLabel.textContent = 'Time';
+    timeInfo = document.createElement('input');
+    timeInfo.className = 'lib-time lib-time-info';
+    timeInfo.value = song.time;
+    timeInfo.placeholder = '03:00';
+    timeInfo.onblur = () => syncTime(timeInfo.value);
+    timeInfo.addEventListener('keydown', e => { if (e.key === 'Enter') timeInfo.blur(); });
+    timeRow.append(timeLabel, timeInfo);
 
     const tempoRow = document.createElement('div');
     tempoRow.className = 'lib-info-row';
@@ -339,7 +362,7 @@ function renderLibrary() {
     lyrics.placeholder = 'Lyrics, cues, or notes for this song';
     lyrics.onblur = () => { library[i].lyrics = lyrics.value.trim(); persist(); };
 
-    infoPanel.append(tempoRow, lyricsLabel, lyrics);
+    infoPanel.append(timeRow, tempoRow, lyricsLabel, lyrics);
 
     const controls = document.createElement('div');
     controls.className = 'lib-controls';
@@ -367,7 +390,7 @@ function renderLibrary() {
     };
 
     const del = document.createElement('button');
-    del.textContent = 'dlt';
+    del.textContent = '🗑️';
     del.title = 'Delete from library';
     del.setAttribute('aria-label', 'Delete from library');
     del.onclick = () => {
@@ -377,7 +400,7 @@ function renderLibrary() {
     };
 
     controls.append(infoBtn, addBtn, del);
-    mainRow.append(handle, name, time, controls);
+    mainRow.append(handle, name, timeMain, controls);
     li.append(mainRow, infoPanel);
     libraryList.appendChild(li);
 

@@ -287,11 +287,26 @@ button:not(.delete):active {
   gap: 0.35rem;
 }
 
+/* Time row inside Library info – only shown on mobile */
+.lib-info-row.lib-time-row {
+  display: none;
+}
+
 .lib-info-label {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+.lib-info input.lib-time {
+  background: #111118;
+  color: var(--fg);
+  border-radius: 8px;
+  border: 1px solid #333;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.8rem;
+  max-width: 7rem;
 }
 
 .lib-info input.lib-tempo {
@@ -506,6 +521,15 @@ button:not(.delete):active {
   }
 
   .dropdown-content { width: 100%; }
+
+  /* Library: hide inline time, show time inside info panel */
+  .lib-main input.lib-time-main {
+    display: none;
+  }
+
+  .lib-info-row.lib-time-row {
+    display: flex;
+  }
 
   .song-item {
     padding-inline: 0.55rem;
