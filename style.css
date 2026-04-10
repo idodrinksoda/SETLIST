@@ -15,22 +15,103 @@
   background: #ff4f84;
 }
 :root {
-  --bg: radial-gradient(circle at top, #141822 0%, #050608 55%, #020305 100%);
-  --card: rgba(10, 11, 16, 0.96);
-  --fg: #f5f7fb;
-  --muted: #9ca3af;
-  --accent: #3b82f6; /* clinical blue */
-  --accent-soft: rgba(59, 130, 246, 0.22);
-  --radius: 14px;
-  --shadow: 0 16px 40px rgba(0,0,0,0.7);
-  --border-subtle: rgba(148, 163, 184, 0.25);
+  --bg: radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%, #060606 100%);
+  --card: rgba(14, 14, 14, 0.97);
+  --fg: #e8e4df;
+  --muted: #7a7570;
+  --accent: #d4cfc9;
+  --accent-soft: rgba(212, 207, 201, 0.12);
+  --danger: #c0513f;
+  --radius: 6px;
+  --shadow: 0 16px 48px rgba(0,0,0,0.85);
+  --border-subtle: rgba(212, 207, 201, 0.1);
+}
+
+/* ===== LOGIN SCREEN ===== */
+#loginForm {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.75rem;
+  background: radial-gradient(ellipse at 40% 30%, #1c1c1c 0%, #080808 60%);
+  gap: 0.9rem;
+  /* display toggled by JS (none / flex) */
+}
+
+.login-title {
+  font-family: 'Oswald', system-ui, sans-serif;
+  font-size: 3.5rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 2.4rem;
+  text-align: center;
+  text-indent: 0.3em;
+}
+
+#loginForm input[type="email"],
+#loginForm input[type="password"] {
+  display: block;
+  width: 100%;
+  max-width: 380px;
+  box-sizing: border-box;
+  padding: 1.05rem 1.3rem;
+  font-size: 1.1rem;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#loginForm input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+#loginForm button[type="submit"] {
+  width: 100%;
+  max-width: 380px;
+  padding: 1.05rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius);
+  margin-top: 0.25rem;
+}
+
+#authError {
+  width: 100%;
+  max-width: 380px;
+  color: var(--danger);
+  font-size: 0.92rem;
+  min-height: 1.4em;
+  text-align: center;
+}
+
+/* Logged-in user info bar */
+#userInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.92rem;
+  color: var(--muted);
 }
 
 /* View Headings */
 .view-heading {
-  font-size: 1.4rem;
-  font-weight: 650;
-  margin-bottom: 1rem;
+  font-family: 'Oswald', system-ui, sans-serif;
+  font-size: 1.55rem;
+  font-weight: 600;
+  margin-bottom: 1.1rem;
   color: var(--fg);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -42,7 +123,7 @@
   cursor: text;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  background: rgba(255, 43, 106, 0.08);
+  background: var(--accent-soft);
 }
 
 .setlist-meta {
@@ -73,50 +154,68 @@ body::before {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 0% 0%, rgba(148, 163, 184, 0.18), transparent 55%),
-    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.14), transparent 55%);
+    radial-gradient(circle at 0% 0%, rgba(212, 207, 201, 0.04), transparent 55%),
+    radial-gradient(circle at 100% 0%, rgba(212, 207, 201, 0.03), transparent 55%);
   mix-blend-mode: screen;
-  opacity: 0.75;
+  opacity: 0.9;
   z-index: -1;
 }
 
 /* TABS */
 .tab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.6rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(232, 184, 75, 0.14);
+}
+
+.app-wordmark {
+  font-family: 'Oswald', system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-indent: 0.25em;
+  color: var(--accent);
+  user-select: none;
+}
+
+.tab-pills {
   display: inline-flex;
-  justify-content: center;
-  gap: 0.25rem;
-  margin-bottom: 1.2rem;
-  padding: 0.15rem;
-  border-radius: 999px;
-  background: rgba(10, 10, 18, 0.85);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+  gap: 0.2rem;
+  padding: 0.12rem;
+  border-radius: var(--radius);
+  background: rgba(14, 14, 14, 0.9);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
 }
 
 .tab-header button {
   background: transparent;
   color: var(--muted);
-  font-size: 0.96rem;
-  border: none;
+  font-size: 0.88rem;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: none;
   cursor: pointer;
-  padding: 0.35rem 0.95rem;
-  border-radius: 999px;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
+  padding: 0.42rem 1.05rem;
+  border-radius: var(--radius);
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
 .tab-header button.active {
-  color: var(--fg);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(125, 211, 252, 0.95));
-  transform: translateY(-0.5px);
+  color: #0a0a0a;
+  background: var(--accent);
 }
 
 /* SHARED STYLES */
 button {
   background: var(--accent);
-  color: white;
+  color: #0a0a0a;
   border: none;
   border-radius: var(--radius);
-  padding: 0.6rem 1rem;
+  padding: 0.7rem 1.15rem;
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s ease;
@@ -124,10 +223,10 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:not(.delete):hover { background: #2563eb; }
+button:not(.delete):hover { background: #c0bbb5; }
 button:not(.delete):active {
   transform: scale(0.97);
-  filter: brightness(1.08);
+  filter: brightness(1.05);
 }
 
 .hidden {
@@ -153,31 +252,68 @@ button:not(.delete):active {
 
 .library-controls {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
 }
 
-.library-controls input {
-  background: #111118;
-  color: white;
-  border: 1px solid #343444;
-  border-radius: 999px;
-  padding: 0.55rem 0.9rem;
-  flex: 1;
-  min-width: 120px;
-  font-size: 0.9rem;
-}
-
-.library-controls input:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft);
+/* Add song button + dropdown panel */
+.add-song-wrap {
+  position: relative;
 }
 
 #saveToLibrary {
   white-space: nowrap;
-  border-radius: 999px;
-  padding-inline: 1.1rem;
+  border-radius: var(--radius);
+  padding-inline: 1.3rem;
+  transition: background 0.18s, box-shadow 0.18s;
+}
+
+#saveToLibrary.active {
+  background: #b0aba5;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.add-song-panel {
+  display: none;
+  flex-direction: column;
+  gap: 0.55rem;
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  left: 0;
+  width: 280px;
+  background: #111111;
+  border: 1px solid rgba(212, 207, 201, 0.12);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.9rem;
+  z-index: 50;
+  animation: dropdownSlide 0.15s ease;
+}
+
+.add-song-panel.open {
+  display: flex;
+}
+
+.add-song-panel input {
+  background: #0d0d0d;
+  color: var(--fg);
+  border: 1px solid rgba(212, 207, 201, 0.13);
+  border-radius: var(--radius);
+  padding: 0.65rem 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.18s;
+}
+
+.add-song-panel input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+#addSongConfirm {
+  border-radius: var(--radius);
+  font-size: 1rem;
+  padding: 0.65rem;
+  margin-top: 0.1rem;
 }
 
 #libraryList {
@@ -192,19 +328,20 @@ button:not(.delete):active {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  background: linear-gradient(145deg, rgba(20, 20, 32, 0.96), rgba(13, 13, 22, 0.96));
-  padding: 0.55rem 0.75rem 0.6rem;
+  background: linear-gradient(145deg, rgba(18, 18, 18, 0.97), rgba(12, 12, 12, 0.97));
+  padding: 0.7rem 0.85rem 0.75rem;
   border-radius: var(--radius);
   cursor: default;
-  border: 1px solid rgba(255,255,255,0.03);
-  box-shadow: 0 13px 32px rgba(0,0,0,0.55);
+  border: 1px solid rgba(212, 207, 201, 0.06);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
   backdrop-filter: blur(18px);
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease, background 0.18s ease;
 }
 
 #libraryList li:hover {
-  border-color: rgba(255,255,255,0.09);
-  box-shadow: 0 18px 40px rgba(0,0,0,0.7);
+  border-color: rgba(212, 207, 201, 0.14);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.65);
+  transform: translateY(-1px);
 }
 
 #libraryList li:active {
@@ -215,31 +352,33 @@ button:not(.delete):active {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  cursor: pointer; /* whole row is clickable to open edit panel */
 }
 
-#libraryList li input.lib-name,
-#libraryList li input.lib-time {
-  background: transparent;
-  color: white;
-  border: none;
-  font-size: 0.95rem;
-}
-
-#libraryList li input.lib-name {
+/* Read-only display spans in the main row */
+.lib-name-display {
   flex: 1;
   min-width: 0;
+  font-size: 1rem;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-#libraryList li input.lib-time {
-  width: 4.5rem;
-  text-align: right;
+.lib-time-display {
+  font-size: 0.9rem;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .lib-controls {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 #libraryList button {
@@ -251,40 +390,42 @@ button:not(.delete):active {
   padding: 0.15rem 0.35rem;
 }
 
-.lib-info-toggle {
-  color: var(--muted);
-}
-
-.lib-info-toggle.has-notes {
-  color: var(--accent);
-}
-
-/* Library info panel (tempo + lyrics) */
+/* Library edit panel — revealed on row click */
 .lib-info {
-  display: none;
+  display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.35rem 0.2rem 0 2.1rem; /* indent under handle */
-  border-top: 1px solid #2a2a30;
+  gap: 0.45rem;
+  overflow: hidden;
+  padding: 0 0.2rem 0 0.2rem;
+  border-top: 1px solid transparent;
   font-size: 0.9rem;
   color: var(--muted);
   max-height: 0;
   opacity: 0;
-  transform-origin: top;
-  transition: max-height 0.2s ease-out, opacity 0.2s ease-out, transform 0.2s ease-out;
+  transition: max-height 0.3s ease, opacity 0.24s ease, padding-top 0.24s ease, border-color 0.24s ease;
 }
 
 .lib-info.open {
-  display: flex;
-  max-height: 260px;
+  max-height: 420px;
   opacity: 1;
-  transform: translateY(0px);
+  padding-top: 0.5rem;
+  border-top-color: rgba(212, 207, 201, 0.08);
+}
+
+/* Highlight the item while its panel is open */
+.lib-item.lib-expanded {
+  border-color: rgba(212, 207, 201, 0.2) !important;
+  box-shadow: 0 0 0 1px rgba(212, 207, 201, 0.06) !important;
 }
 
 .lib-info-row {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
+}
+
+.lib-info-row .lib-info-label {
+  flex: 0 0 5rem;
 }
 
 .lib-info-label {
@@ -294,36 +435,54 @@ button:not(.delete):active {
   color: var(--muted);
 }
 
-.lib-info input.lib-time {
-  background: #111118;
+/* All inputs inside the edit panel get the same treatment */
+.lib-info input {
+  flex: 1;
+  min-width: 0;
+  background: #0d0d0d;
   color: var(--fg);
-  border-radius: 8px;
-  border: 1px solid #333;
-  padding: 0.3rem 0.45rem;
-  font-size: 0.8rem;
-  max-width: 7rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(212, 207, 201, 0.1);
+  padding: 0.38rem 0.55rem;
+  font-size: 0.9rem;
+  font-family: inherit;
 }
-
-.lib-info input.lib-tempo {
-  background: #111118;
-  color: var(--fg);
-  border-radius: 8px;
-  border: 1px solid #333;
-  padding: 0.3rem 0.45rem;
-  font-size: 0.8rem;
-  max-width: 7rem;
+.lib-info input:focus {
+  border-color: var(--accent);
+  outline: none;
 }
 
 .lib-info textarea.lib-lyrics {
-  background: #111118;
+  background: #0d0d0d;
   color: var(--fg);
-  border-radius: 8px;
-  border: 1px solid #333;
+  border-radius: var(--radius);
+  border: 1px solid rgba(212, 207, 201, 0.1);
   padding: 0.4rem 0.5rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-family: inherit;
   min-height: 2.6rem;
   resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.lib-delete-btn {
+  margin-top: 0.35rem;
+  width: 100%;
+  background: none;
+  color: var(--danger);
+  border: 1px solid rgba(224, 92, 74, 0.3);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.18s, border-color 0.18s;
+}
+.lib-delete-btn:hover {
+  background: rgba(224, 92, 74, 0.1);
+  border-color: var(--danger);
 }
 
 /* Library drag handle and dragging visuals */
@@ -352,23 +511,67 @@ button:not(.delete):active {
 
 .setlist-controls {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.6rem;
 }
 
 .dropdown {
   position: relative;
+  width: 100%;
+}
+
+#setlistDropdownBtn {
+  width: 100%;
+  padding: 0.85rem 1.4rem;
+  font-size: 1.1rem;
+  font-family: 'Oswald', system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: center;
+  justify-content: center;
+  background: none;
+  color: var(--accent);
+  border: 2px solid rgba(212, 207, 201, 0.25);
+}
+#setlistDropdownBtn:hover {
+  background: var(--accent-soft) !important;
+  color: var(--fg);
+}
+
+.setlist-actions {
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.setlist-actions.visible {
+  display: flex;
+}
+
+.setlist-actions button {
+  background: none;
+  color: var(--fg);
+  border: 1px solid rgba(255,255,255,0.13);
+  font-size: 0.88rem;
+  padding: 0.42rem 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.setlist-actions button:hover {
+  background: rgba(255,255,255,0.07) !important;
+  border-color: rgba(255,255,255,0.25);
+  color: var(--fg);
 }
 
 .dropdown-content {
   position: absolute;
-  background: #1b1b1f;
-  border: 1px solid #333;
+  background: #111111;
+  border: 1px solid rgba(212, 207, 201, 0.1);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  width: 250px;
+  width: 100%;
   display: none;
   flex-direction: column;
   overflow: hidden;
@@ -397,7 +600,60 @@ button:not(.delete):active {
 }
 
 .dropdown-content button:hover {
-  background: var(--accent);
+  background: rgba(232, 184, 75, 0.1);
+  color: var(--accent);
+}
+
+.dropdown-set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  transition: background 0.12s;
+  gap: 0.6rem;
+}
+
+.dropdown-set-row:hover {
+  background: rgba(232, 184, 75, 0.1);
+}
+
+.dropdown-set-row.active-set {
+  background: var(--accent-soft);
+  border-left: 2px solid var(--accent);
+}
+
+.dropdown-set-name {
+  flex: 1;
+  font-size: 0.95rem;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-set-time {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.delete-setlist-btn-action {
+  background: none;
+  border: 1px solid rgba(224, 92, 74, 0.35);
+  color: var(--danger);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.8rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.delete-setlist-btn-action:hover {
+  background: rgba(224, 92, 74, 0.1) !important;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 #setlist {
@@ -413,11 +669,12 @@ button:not(.delete):active {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #171720, #101018);
+  background: linear-gradient(135deg, #141414, #0e0e0e);
   border-radius: var(--radius);
-  padding: 0.5rem 0.7rem;
+  padding: 0.65rem 0.85rem;
   cursor: grab;
-  border: 1px solid rgba(255,255,255,0.03);
+  border: 1px solid rgba(212, 207, 201, 0.05);
+  border-left: 3px solid transparent;
   transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease, border-color 0.18s ease;
 }
 
@@ -426,7 +683,7 @@ button:not(.delete):active {
   user-select: none;
 }
 
-.song-item .song-order { flex: 0 0 40px; color: var(--muted); text-align: center; }
+.song-item .song-order { flex: 0 0 40px; color: var(--muted); opacity: 0.6; text-align: center; font-family: 'Oswald', system-ui, sans-serif; font-weight: 600; font-size: 1.05rem; }
 .song-item .song-name { text-align: left; }
 .song-item .song-time { text-align: right; flex: 0 0 80px; }
 .song-item .song-tempo { text-align: right; flex: 0 0 80px; color: var(--muted); font-size: 0.9rem; }
@@ -446,20 +703,22 @@ button:not(.delete):active {
 
 .delete {
   background: none;
-  color: var(--accent);
+  color: var(--muted);
   font-size: 1.05rem;
   border: none;
   cursor: pointer;
   padding: 0.15rem 0.35rem;
   border-radius: 999px;
+  transition: color 0.15s, background 0.15s;
 }
 
 .delete:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(224, 92, 74, 0.1);
+  color: var(--danger);
 }
 
 .delete:active {
-  background: rgba(59, 130, 246, 0.16);
+  background: rgba(224, 92, 74, 0.18);
   transform: scale(0.97);
 }
 
@@ -477,8 +736,8 @@ button:not(.delete):active {
 }
 
 .song-placeholder {
-  background: rgba(59, 130, 246, 0.14);
-  border: 2px dashed var(--accent);
+  background: var(--accent-soft);
+  border: 2px dashed rgba(212, 207, 201, 0.3);
   border-radius: var(--radius);
 }
 
@@ -494,76 +753,230 @@ button:not(.delete):active {
   text-align: right;
   color: var(--muted);
   font-size: 1rem;
-  margin-top: 0.5rem;
+  font-family: 'Oswald', system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  margin-top: 0.6rem;
 }
 
 /* MOBILE */
 @media (max-width: 600px) {
   body {
-    padding: 0.9rem 0.75rem 2.2rem;
+    padding: 1rem 0.9rem 2.5rem;
+  }
+
+  /* Tab bar on mobile */
+  .tab-header {
+    width: 100%;
+    box-sizing: border-box;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.2rem;
+  }
+  .app-wordmark {
+    font-size: 1.2rem;
+  }
+  .tab-header button {
+    flex: 1;
+    font-size: 0.82rem;
+    padding: 0.45rem 0.6rem;
   }
 
   #libraryView,
   #setlistView {
-    padding-inline: 0.85rem;
+    padding-inline: 0.9rem;
   }
 
-  /* Library: keep one-row layout but tighten spacing on small screens */
   .lib-main {
-    gap: 0.3rem;
+    gap: 0.35rem;
+  }
+
+  #libraryList li {
+    padding: 0.75rem 0.85rem;
   }
 
   #libraryList li input.lib-name {
-    font-size: 0.9rem;
+    font-size: 1rem;
   }
 
   #libraryList li input.lib-time {
-    width: 3.4rem;
-    font-size: 0.8rem;
+    width: 4rem;
+    font-size: 0.95rem;
   }
 
   #libraryList li .lib-controls button {
-    font-size: 0.9rem;
-    padding: 0.1rem 0.25rem;
+    font-size: 1rem;
+    padding: 0.2rem 0.4rem;
   }
 
   .setlist-controls {
-    flex-direction: column;
     align-items: stretch;
   }
 
   .dropdown-content { width: 100%; }
 
   .song-item {
-    padding-inline: 0.55rem;
+    padding: 0.65rem 0.75rem;
     flex-wrap: wrap;
     align-items: flex-start;
-    row-gap: 0.25rem;
+    row-gap: 0.3rem;
   }
 
   .song-item .drag-handle {
-    flex: 0 0 20px;
+    flex: 0 0 24px;
   }
 
   .song-item .song-order {
-    flex: 0 0 24px;
-    font-size: 0.8rem;
+    flex: 0 0 28px;
+    font-size: 0.9rem;
   }
 
   .song-item .song-name {
     flex: 1 1 100%;
+    font-size: 1rem;
   }
 
   .song-item .song-time,
   .song-item .song-tempo {
     flex: 0 0 auto;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
   }
 
   .song-item .delete {
     margin-left: auto;
-    margin-top: 0.1rem;
-    padding: 0.1rem 0.25rem; /* match Library mobile buttons */
-    font-size: 0.9rem;
+    padding: 0.2rem 0.4rem;
+    font-size: 1rem;
   }
+
+  /* Mobile: panel goes full width */
+@media (max-width: 600px) {
+  .add-song-panel {
+    width: calc(100vw - 3.6rem);
+  }
+}
+
+/* Prevent iOS Safari from zooming in on input focus (triggers at font-size < 16px) */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Login screen: slightly tighter on small screens, title a touch smaller */
+  .login-title {
+    font-size: 2.4rem;
+    margin-bottom: 1.8rem;
+  }
+
+  #loginForm input[type="email"],
+  #loginForm input[type="password"],
+  #loginForm button[type="submit"] {
+    max-width: 100%;
+  }
+}
+
+/* ===== Toast notification ===== */
+#toastBar {
+  position: fixed;
+  bottom: 1.75rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(18, 14, 10, 0.97);
+  color: var(--fg);
+  padding: 0.58rem 1.4rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,184,75,0.12);
+  z-index: 99999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  white-space: normal;
+  max-width: calc(100vw - 2.5rem);
+  text-align: center;
+  word-break: break-word;
+}
+#toastBar.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ===== Entrance animation for setlist items ===== */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: fadeSlideIn 0.22s ease both;
+}
+
+/* ===== Song item hover ===== */
+.song-item:hover {
+  border-color: rgba(212, 207, 201, 0.1);
+  border-left-color: var(--accent);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.55);
+  transform: translateY(-1px);
+}
+.song-item:active:not(.dragging):not(.touch-dragging) {
+  transform: translateY(0);
+}
+
+/* ===== Custom scrollbar ===== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+/* ===== Print: hide chrome, show only setlist content ===== */
+@media print {
+  #authSection, .tab-header, .setlist-controls, #totalTime, .delete { display: none !important; }
+}
+
+/* ===== Auth loading spinner ===== */
+#authSpinner {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%, #060606 100%);
+  z-index: 9900;
+  transition: opacity 0.3s ease;
+}
+#authSpinner.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+.spinner-ring {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255,255,255,0.08);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+.spinner-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Long-press visual feedback on library rows ===== */
+.lib-item.long-press-active {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius);
+  animation: longPressFlash 0.4s ease;
+}
+@keyframes longPressFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(212,207,201,0.4); }
+  60%  { box-shadow: 0 0 0 8px rgba(212,207,201,0); }
+  100% { box-shadow: none; }
 }

@@ -1,11 +1,3 @@
-const debugStatus = document.getElementById('debugStatus');
-function setDebugStatus(msg) {
-  if (debugStatus) {
-    debugStatus.textContent = msg;
-    debugStatus.style.display = 'block';
-  }
-}
-
 // ===== Firebase Auth UI + Firestore Sync (CDN compat) =====
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -29,8 +21,23 @@ const authError = document.getElementById('authError');
 
 function showAppUI(show) {
   document.querySelector('.tab-header').style.display = show ? '' : 'none';
-  document.getElementById('libraryView').style.display = show ? '' : 'none';
-  document.getElementById('setlistView').style.display = show ? '' : 'none';
+  const _lib    = document.getElementById('libraryView');
+  const _sl     = document.getElementById('setlistView');
+  const _tabLib = document.getElementById('tabLibrary');
+  const _tabSl  = document.getElementById('tabSetlist');
+  // Clear any stale inline display overrides so the hidden class is in full control
+  _lib.style.display = '';
+  _sl.style.display  = '';
+  if (show) {
+    // Always start on the Library tab so both tabs are reachable after login
+    _lib.classList.remove('hidden');
+    _sl.classList.add('hidden');
+    if (_tabLib) { _tabLib.classList.add('active'); }
+    if (_tabSl)  { _tabSl.classList.remove('active'); }
+  } else {
+    _lib.classList.add('hidden');
+    _sl.classList.add('hidden');
+  }
 }
 
 function attachRealtimeListeners() {
@@ -84,13 +91,20 @@ function attachRealtimeListeners() {
 
 function persistFirestore() {
   if (!auth.currentUser) return;
-  db.doc(LIBRARY_DOC).set({ songs: library }, { merge: true });
+  db.doc(LIBRARY_DOC).set({ songs: library }, { merge: true })
+    .catch(() => showToast('⚠️ Could not save — check your connection.'));
   // Replace the entire allSetlists map so deleted setlists do not reappear
-  db.doc(SETLISTS_DOC).set({ allSetlists }, { merge: false });
+  db.doc(SETLISTS_DOC).set({ allSetlists }, { merge: false })
+    .catch(() => showToast('⚠️ Could not save — check your connection.'));
 }
 
 auth.onAuthStateChanged(user => {
-  setDebugStatus('Auth state changed. User: ' + (user ? user.email : 'none'));
+  // Dismiss the loading spinner shown on initial page load
+  const spinner = document.getElementById('authSpinner');
+  if (spinner) {
+    spinner.classList.add('fade-out');
+    setTimeout(() => { spinner.style.display = 'none'; spinner.classList.remove('fade-out'); }, 300);
+  }
 
   if (user) {
     loginForm.style.display = 'none';
@@ -103,7 +117,7 @@ auth.onAuthStateChanged(user => {
     if (libraryUnsub) { libraryUnsub(); libraryUnsub = null; }
     if (setlistsUnsub) { setlistsUnsub(); setlistsUnsub = null; }
 
-    loginForm.style.display = 'block';
+    loginForm.style.display = 'flex';
     userInfo.style.display = 'none';
     userEmail.textContent = '';
     showAppUI(false);
@@ -124,6 +138,20 @@ loginForm.addEventListener('submit', e => {
 logoutBtn.addEventListener('click', () => {
   auth.signOut();
 });
+
+/* ===== Toast notifications ===== */
+function showToast(msg, duration = 2400) {
+  let el = document.getElementById('toastBar');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toastBar';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('visible'), duration);
+}
 
 showAppUI(false);
 
@@ -185,6 +213,13 @@ function persist() {
   persistFirestore();
 }
 
+// Debounced persist for inline field edits — avoids a Firestore write per keystroke
+let _persistFieldTimer = null;
+function persistField() {
+  clearTimeout(_persistFieldTimer);
+  _persistFieldTimer = setTimeout(persist, 800);
+}
+
 function updateSetlistTitle() {
   // Update header label
   if (currentSetlistNameEl) {
@@ -197,7 +232,9 @@ function updateSetlistTitle() {
     const mm = Math.floor(totalSecs / 60).toString();
     const ss = String(totalSecs % 60).padStart(2, '0');
     const plural = count === 1 ? 'song' : 'songs';
-    currentSetlistMetaEl.textContent = count ? `— ${count} ${plural} • ${mm}:${ss}` : '';
+    currentSetlistMetaEl.textContent = currentSetlist
+      ? (count ? `— ${count} ${plural} • ${mm}:${ss}` : '— 0 songs')
+      : '';
   }
   // Update dropdown button label to show active setlist
   if (setlistDropdownBtn) {
@@ -205,6 +242,9 @@ function updateSetlistTitle() {
     const label = currentSetlist || 'Select setlist';
     setlistDropdownBtn.textContent = `🎛 ${label} ${isOpen ? '▴' : '▾'}`;
   }
+  // Show/hide print-share-clear actions based on whether a setlist is loaded
+  const actionsEl = document.querySelector('.setlist-actions');
+  if (actionsEl) actionsEl.classList.toggle('visible', !!currentSetlist);
   // Reflect current set in the URL hash for easy sharing/navigation
   if (currentSetlist) {
     const desiredHash = '#' + encodeURIComponent(currentSetlist);
@@ -253,7 +293,7 @@ function setupSetlistNameEditing() {
       if (!commit) { updateSetlistTitle(); return; }
       if (!newName || newName === currentSetlist) { updateSetlistTitle(); return; }
       if (allSetlists[newName]) {
-        alert('A setlist with that name already exists.');
+        showToast('A setlist with that name already exists.');
         updateSetlistTitle();
         return;
       }
@@ -312,24 +352,48 @@ function renderLibrary() {
     handle.title = 'Drag to reorder';
     handle.textContent = '≡';
 
+    // Read-only display in the main row
+    const nameDisplay = document.createElement('span');
+    nameDisplay.className = 'lib-name-display';
+    nameDisplay.textContent = song.name;
+
+    const timeDisplay = document.createElement('span');
+    timeDisplay.className = 'lib-time-display';
+    timeDisplay.textContent = song.time;
+
+    // Edit panel — all fields, shown when row is tapped/clicked
+    const infoPanel = document.createElement('div');
+    infoPanel.className = 'lib-info';
+
+    // Name
+    const nameEditRow = document.createElement('div');
+    nameEditRow.className = 'lib-info-row';
+    const nameLabel = document.createElement('span');
+    nameLabel.className = 'lib-info-label';
+    nameLabel.textContent = 'Name';
     const name = document.createElement('input');
     name.className = 'lib-name';
     name.value = song.name;
     name.placeholder = 'Song name';
-    name.onblur = () => { library[i].name = name.value.trim(); persist(); };
+    name.onblur = () => { library[i].name = name.value.trim(); nameDisplay.textContent = library[i].name; persistField(); };
     name.addEventListener('keydown', e => { if (e.key === 'Enter') name.blur(); });
-    // Time input (shared for desktop & mobile; layout controlled via CSS)
+    nameEditRow.append(nameLabel, name);
+
+    // Duration
+    const timeEditRow = document.createElement('div');
+    timeEditRow.className = 'lib-info-row';
+    const timeLabel = document.createElement('span');
+    timeLabel.className = 'lib-info-label';
+    timeLabel.textContent = 'Duration';
     const time = document.createElement('input');
-    time.className = 'lib-time lib-time-main';
+    time.className = 'lib-time';
     time.value = song.time;
     time.placeholder = '03:00';
-    time.onblur = () => { library[i].time = formatTime(time.value); time.value = library[i].time; persist(); };
+    time.onblur = () => { library[i].time = formatTime(time.value); time.value = library[i].time; timeDisplay.textContent = library[i].time; persistField(); };
     time.addEventListener('keydown', e => { if (e.key === 'Enter') time.blur(); });
+    timeEditRow.append(timeLabel, time);
 
-    // Info panel (tempo + lyrics)
-    const infoPanel = document.createElement('div');
-    infoPanel.className = 'lib-info';
-
+    // Tempo
     const tempoRow = document.createElement('div');
     tempoRow.className = 'lib-info-row';
     const tempoLabel = document.createElement('span');
@@ -339,10 +403,11 @@ function renderLibrary() {
     tempo.className = 'lib-tempo';
     tempo.value = song.tempo || '';
     tempo.placeholder = '120 BPM';
-    tempo.onblur = () => { library[i].tempo = tempo.value.trim(); persist(); };
+    tempo.onblur = () => { library[i].tempo = tempo.value.trim(); persistField(); };
     tempo.addEventListener('keydown', e => { if (e.key === 'Enter') tempo.blur(); });
     tempoRow.append(tempoLabel, tempo);
 
+    // Lyrics
     const lyricsLabel = document.createElement('span');
     lyricsLabel.className = 'lib-info-label';
     lyricsLabel.textContent = 'Lyrics / Notes';
@@ -350,9 +415,15 @@ function renderLibrary() {
     lyrics.className = 'lib-lyrics';
     lyrics.value = song.lyrics || '';
     lyrics.placeholder = 'Lyrics, cues, or notes for this song';
-    lyrics.onblur = () => { library[i].lyrics = lyrics.value.trim(); persist(); };
+    lyrics.onblur = () => { library[i].lyrics = lyrics.value.trim(); persistField(); };
 
-    infoPanel.append(tempoRow, lyricsLabel, lyrics);
+    infoPanel.append(nameEditRow, timeEditRow, tempoRow, lyricsLabel, lyrics);
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '🗑️ Delete from library';
+    delBtn.className = 'lib-delete-btn';
+    delBtn.onclick = () => { library.splice(i, 1); persist(); renderLibrary(); };
+    infoPanel.appendChild(delBtn);
 
     const controls = document.createElement('div');
     controls.className = 'lib-controls';
@@ -362,10 +433,12 @@ function renderLibrary() {
     infoBtn.className = 'lib-info-toggle';
     if (song.lyrics || song.tempo) infoBtn.classList.add('has-notes');
     infoBtn.textContent = 'ℹ️';
-    infoBtn.title = 'Show lyrics & tempo';
+    infoBtn.title = 'Edit song details';
     infoBtn.onclick = () => {
-      const open = !infoPanel.classList.contains('open');
-      infoPanel.classList.toggle('open', open);
+      const opening = !infoPanel.classList.contains('open');
+      infoPanel.classList.toggle('open', opening);
+      li.classList.toggle('lib-expanded', opening);
+      if (opening) setTimeout(() => name.focus(), 60);
     };
 
     // ➕ add to current setlist (push a COPY to avoid shared references)
@@ -373,24 +446,22 @@ function renderLibrary() {
     addBtn.textContent = '➕';
     addBtn.title = 'Add to current setlist';
     addBtn.onclick = () => {
+      if (!currentSetlist) {
+        showToast('No setlist selected — go to Setlist tab and pick or create one first.');
+        return;
+      }
       const src = library[i] || {};
       const copy = { name: src.name, time: src.time, tempo: src.tempo, lyrics: src.lyrics };
       songs.push(copy);
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
+      const totalSecs = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
+      const mm = Math.floor(totalSecs / 60);
+      const ss = String(totalSecs % 60).padStart(2, '0');
+      showToast(`“${src.name}” added — total ${mm}:${ss}`);
     };
 
-    const del = document.createElement('button');
-    del.textContent = '🗑️';
-    del.title = 'Delete from library';
-    del.setAttribute('aria-label', 'Delete from library');
-    del.onclick = () => {
-      library.splice(i, 1);
-      persist(); renderLibrary();
-      // Do NOT touch songs; setlist remains intact
-    };
-
-    controls.append(infoBtn, addBtn, del);
-    mainRow.append(handle, name, time, controls);
+    controls.append(infoBtn, addBtn);
+    mainRow.append(handle, nameDisplay, timeDisplay, controls);
     li.append(mainRow, infoPanel);
     libraryList.appendChild(li);
 
@@ -424,11 +495,33 @@ function renderLibrary() {
       renderLibrary();
     });
 
-    // Touch/pen drag start only from handle
+    // Touch/pen: long-press anywhere on the row (not on a button/input) to start drag
     li.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse') return;
-      if (!e.target || !e.target.closest('.drag-handle')) return;
-      startTouchDragLib(e, li);
+      if (e.target && (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea'))) return;
+      const capturedId = e.pointerId, startY = e.clientY, startX = e.clientX;
+      let moved = false;
+      const onMove = (ev) => {
+        if (Math.abs(ev.clientY - startY) > 9 || Math.abs(ev.clientX - startX) > 9) {
+          moved = true; clearTimeout(pressTimer); cleanup();
+        }
+      };
+      const cleanup = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+      const onUp = () => { clearTimeout(pressTimer); cleanup(); };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp, { once: true });
+      window.addEventListener('pointercancel', onUp, { once: true });
+      const pressTimer = setTimeout(() => {
+        cleanup();
+        if (moved || libTouchDrag.active) return;
+        li.classList.add('long-press-active');
+        startTouchDragLib({ pointerId: capturedId, clientY: startY, clientX: startX, pointerType: e.pointerType, preventDefault: () => {} }, li);
+        setTimeout(() => li.classList.remove('long-press-active'), 400);
+      }, 380);
     });
   });
 }
@@ -484,7 +577,7 @@ let libTouchDrag = { active: false, item: null, placeholder: null, grabOffsetY: 
 
 function startTouchDragLib(e, item) {
   if (document.querySelector('.dragging')) return;
-  e.preventDefault();
+  if (typeof e.preventDefault === 'function') e.preventDefault();
   item.setPointerCapture(e.pointerId);
 
   const rect = item.getBoundingClientRect();
@@ -567,23 +660,36 @@ function endTouchDragLib(e) {
   renderLibrary();
 }
 
-saveToLibrary.onclick = () => {
+const addSongPanel   = document.getElementById('addSongPanel');
+const addSongConfirm = document.getElementById('addSongConfirm');
+
+// Toggle the add-song panel open/closed
+saveToLibrary.onclick = (e) => {
+  e.stopPropagation();
+  const opening = !addSongPanel.classList.contains('open');
+  addSongPanel.classList.toggle('open', opening);
+  saveToLibrary.classList.toggle('active', opening);
+  if (opening) setTimeout(() => libSongName.focus(), 60);
+};
+
+// Close panel when clicking outside
+document.addEventListener('click', (e) => {
+  if (!addSongPanel.contains(e.target) && e.target !== saveToLibrary) {
+    addSongPanel.classList.remove('open');
+    saveToLibrary.classList.remove('active');
+  }
+});
+
+function doAddSong() {
   const n = libSongName.value.trim();
   let t = formatTime(libSongTime.value || '03:00');
   const tempo = libSongTempo ? libSongTempo.value.trim() : '';
-  if (!n) return;
-  // If a song with this name already exists in the library, update it
-  const existingIndex = library.findIndex(s => (s.name || '').toLowerCase() === n.toLowerCase());
+  if (!n) { libSongName.focus(); return; }
 
+  const existingIndex = library.findIndex(s => (s.name || '').toLowerCase() === n.toLowerCase());
   if (existingIndex !== -1) {
-    // Update only the fields the user actually provided; keep others as-is
-    if (libSongTime.value.trim()) {
-      library[existingIndex].time = t;
-    }
-    if (tempo) {
-      library[existingIndex].tempo = tempo;
-    }
-    // Optionally also normalize the name casing to the latest input
+    if (libSongTime.value.trim()) library[existingIndex].time = t;
+    if (tempo) library[existingIndex].tempo = tempo;
     library[existingIndex].name = n;
   } else {
     library.push({ name: n, time: t, tempo });
@@ -592,7 +698,22 @@ saveToLibrary.onclick = () => {
   libSongTime.value = '';
   if (libSongTempo) libSongTempo.value = '';
   persist(); renderLibrary();
-};
+  // Close panel and show confirmation
+  addSongPanel.classList.remove('open');
+  saveToLibrary.classList.remove('active');
+  showToast(`"${n}" added to library`);
+}
+
+addSongConfirm.onclick = doAddSong;
+
+// Enter key in any field submits
+[libSongName, libSongTime, libSongTempo].forEach(inp => {
+  if (!inp) return;
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); doAddSong(); }
+    if (e.key === 'Escape') { addSongPanel.classList.remove('open'); saveToLibrary.classList.remove('active'); }
+  });
+});
 
 /* ===== Setlist (read-only + draggable) ===== */
 function renderSetlist() {
@@ -600,11 +721,12 @@ function renderSetlist() {
   songs.forEach((song, i) => {
     const item = songTemplate.content.cloneNode(true).children[0];
 
-    // spans = read-only display
+    // spans are read-only in the setlist view
     item.querySelector('.song-order').textContent = i + 1;
     item.querySelector('.song-name').textContent  = song.name;
     item.querySelector('.song-time').textContent  = song.time;
     item.querySelector('.song-tempo').textContent = song.tempo || '';
+    item.dataset.origIndex = i;
 
     // delete ONLY from setlist
     item.querySelector('.delete').onclick = () => {
@@ -630,15 +752,19 @@ function renderSetlist() {
       item.classList.remove('dragging');
       item.setAttribute('aria-grabbed', 'false');
       stopAutoScroll();
-      // write back new order from DOM
-      songs = [...setlist.children].map(li => ({
-        name: li.querySelector('.song-name').textContent,
-        time: li.querySelector('.song-time').textContent,
-        tempo: li.querySelector('.song-tempo').textContent
-      }));
+      // write back new order from DOM, preserving all song fields (including lyrics)
+      const prevSongs = songs;
+      songs = [...setlist.children].map(li => {
+        const origIdx = parseInt(li.dataset.origIndex, 10);
+        return (!isNaN(origIdx) && prevSongs[origIdx])
+          ? { ...prevSongs[origIdx] }
+          : { name: li.querySelector('.song-name').textContent, time: li.querySelector('.song-time').textContent, tempo: li.querySelector('.song-tempo').textContent };
+      });
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     });
 
+    item.style.animationDelay = Math.min(i * 0.045, 0.3) + 's';
+    item.classList.add('animate-in');
     setlist.appendChild(item);
 
     // Pointer/touch fallback for reordering on devices without native HTML5 DnD.
@@ -828,12 +954,14 @@ function endTouchDrag(e) {
 
   touchDrag = { active: false, item: null, placeholder: null, grabOffsetY: 0, rectLeft: 0, width: 0 };
 
-  // Persist new order from DOM
-  songs = [...setlist.children].map(li => ({
-    name: li.querySelector('.song-name').textContent,
-    time: li.querySelector('.song-time').textContent,
-    tempo: li.querySelector('.song-tempo').textContent
-  }));
+  // Persist new order from DOM, preserving all song fields (including lyrics)
+  const prevSongs = songs;
+  songs = [...setlist.children].map(li => {
+    const origIdx = parseInt(li.dataset.origIndex, 10);
+    return (!isNaN(origIdx) && prevSongs[origIdx])
+      ? { ...prevSongs[origIdx] }
+      : { name: li.querySelector('.song-name').textContent, time: li.querySelector('.song-time').textContent, tempo: li.querySelector('.song-tempo').textContent };
+  });
   persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
 }
 
@@ -875,42 +1003,36 @@ setlist.addEventListener('keydown', (e) => {
 function renderDropdown() {
   setlistDropdown.innerHTML = '';
 
-  // Existing setlists with delete icon
+  // Existing setlists: name + total time only
   Object.keys(allSetlists).forEach(name => {
-    const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.justifyContent = 'space-between';
-    row.style.padding = '0 0.5rem';
+    const setSongs = Array.isArray(allSetlists[name]) ? allSetlists[name] : [];
+    const totalSecs = setSongs.reduce((acc, s) => acc + parseTime(s.time), 0);
+    const mm = Math.floor(totalSecs / 60);
+    const ss = String(totalSecs % 60).padStart(2, '0');
+    const timeStr = totalSecs > 0 ? `${mm}:${ss}` : '—';
 
-  const btn = document.createElement('button');
-  // Dropdown items show the setlist name; include a ✓ for the active one
-  btn.textContent = name + (name === currentSetlist ? ' ✓' : '');
-    btn.style.flex = '1';
-    btn.onclick = () => {
-      // Load selected setlist
+    const row = document.createElement('div');
+    row.className = 'dropdown-set-row' + (name === currentSetlist ? ' active-set' : '');
+    row.onclick = () => {
       currentSetlist = name;
       songs = Array.isArray(allSetlists[name]) ? [...allSetlists[name]] : [];
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
       toggleDropdown(false);
     };
 
-    const delBtn = document.createElement('button');
-    delBtn.textContent = 'Delete';
-    delBtn.title = 'Delete setlist';
-    delBtn.className = 'delete-setlist-btn';
-    delBtn.dataset.name = name;
-    delBtn.style.background = 'none';
-    delBtn.style.border = 'none';
-    delBtn.style.color = '#ff2b6a';
-    delBtn.style.fontSize = '1.1rem';
-    delBtn.style.cursor = 'pointer';
-    delBtn.style.marginLeft = '0.5rem';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'dropdown-set-name';
+    nameEl.textContent = name;
 
-    row.appendChild(btn);
-    row.appendChild(delBtn);
+    const timeEl = document.createElement('span');
+    timeEl.className = 'dropdown-set-time';
+    timeEl.textContent = timeStr;
+
+    row.appendChild(nameEl);
+    row.appendChild(timeEl);
     setlistDropdown.appendChild(row);
   });
+
 
   // Divider
   const hr = document.createElement('div');
@@ -1000,36 +1122,47 @@ document.addEventListener('click', e => {
   }
 });
 
-// Delegated handler for delete buttons in the dropdown (more reliable than per-button handlers)
-setlistDropdown.addEventListener('click', (e) => {
-  const del = e.target.closest('.delete-setlist-btn');
-  if (!del) return;
-  e.stopPropagation();
-  const name = del.dataset.name;
-  if (!name) return;
-  const countBefore = Object.keys(allSetlists).length;
+// Delete the currently loaded setlist
+const deleteSetlistBtn = document.getElementById('deleteSetlistBtn');
+if (deleteSetlistBtn) {
+  deleteSetlistBtn.onclick = () => {
+    if (!currentSetlist) return;
+    if (deleteSetlistBtn.dataset.confirm === 'yes') {
+      const name = currentSetlist;
+      delete allSetlists[name];
+      const remaining = Object.keys(allSetlists);
+      currentSetlist = remaining[0] || '';
+      songs = currentSetlist && Array.isArray(allSetlists[currentSetlist])
+        ? [...allSetlists[currentSetlist]] : [];
+      persist(); renderSetlist(); renderDropdown(); updateTotal(); updateSetlistTitle();
+      deleteSetlistBtn.textContent = '🗑️ Delete';
+      deleteSetlistBtn.dataset.confirm = '';
+      showToast(`"${name}" deleted`);
+    } else {
+      deleteSetlistBtn.textContent = 'Confirm delete?';
+      deleteSetlistBtn.dataset.confirm = 'yes';
+      setTimeout(() => {
+        deleteSetlistBtn.textContent = '🗑️ Delete';
+        deleteSetlistBtn.dataset.confirm = '';
+      }, 2500);
+    }
+  };
+}
 
-  // perform deletion
-  delete allSetlists[name];
-
-  if (countBefore <= 1) {
-    // Deleted the last remaining setlist: go to a blank state
-    currentSetlist = '';
-    songs = [];
-  } else if (currentSetlist === name) {
-    // If the active setlist was deleted, switch to the first available
-    const names = Object.keys(allSetlists);
-    currentSetlist = names[0] || '';
-    songs = currentSetlist && Array.isArray(allSetlists[currentSetlist])
-      ? [...allSetlists[currentSetlist]]
-      : [];
-  }
-  persist();
-  renderSetlist();
-  renderDropdown();
-  updateTotal();
-  updateSetlistTitle();
-});
+// Duplicate the currently loaded setlist
+const dupSetlistBtn = document.getElementById('dupSetlistBtn');
+if (dupSetlistBtn) {
+  dupSetlistBtn.onclick = () => {
+    if (!currentSetlist) return;
+    let copyName = currentSetlist + ' (copy)';
+    let n = 2;
+    while (allSetlists[copyName]) copyName = currentSetlist + ` (copy ${n++})`;
+    allSetlists[copyName] = songs.map(s => ({ ...s }));
+    currentSetlist = copyName;
+    persist(); renderDropdown(); updateSetlistTitle();
+    showToast(`Duplicated as "${copyName}"`);
+  };
+}
 
 // Respond to external hash changes (e.g., pasted URL)
 window.addEventListener('hashchange', () => {
@@ -1071,63 +1204,29 @@ printBtn.onclick = () => {
       return `<div class="line"><strong>${i + 1}.</strong> ${s.name}${tempoText} <span class="t">(${s.time})</span></div>`;
     })
     .join('');
-  const win = window.open('', '', 'width=800,height=1000');
-  win.document.write(`
-    <!doctype html><html><head><style>
-      @page { size: auto; margin: 18mm; }
-      html, body { height: 100%; }
-      body{font-family:Arial,sans-serif;font-size:22px;line-height:1.6;margin:48px;color:#000}
-      .line{break-inside:avoid;padding:.35rem 0;border-bottom:1px solid #e5e5e5}
-      strong{margin-right:.4rem}
-      .t{opacity:.8}
-      .tempo{opacity:.6;font-size:.85em;margin-left:.5rem}
-    </style></head><body><div id="printContent">${html}</div>
-    <script>
-      (function(){
-        const MIN=12, MAX=36, BASE=22; // px
-        const body=document.body, cont=document.getElementById('printContent');
-        function available(){ return window.innerHeight - 96; } // body margin 48px top+bottom
-        function fitOnce(){
-          const avail=available();
-          const h=cont.scrollHeight;
-          if (!h || !avail) return;
-          const scale=avail / h;
-          let size=Math.max(MIN, Math.min(MAX, Math.floor(BASE*scale)));
-          body.style.fontSize=size+'px';
-        }
-        function refine(){
-          let guard=0;
-          while(guard++<8){
-            const avail=available();
-            const h=cont.scrollHeight;
-            if (h>avail){
-              const cur=parseFloat(getComputedStyle(body).fontSize)||BASE;
-              const next=Math.max(MIN, cur-1);
-              if (next===cur) break;
-              body.style.fontSize=next+'px';
-            } else {
-              // try grow to better fill the page
-              const cur=parseFloat(getComputedStyle(body).fontSize)||BASE;
-              const next=Math.min(MAX, cur+1);
-              body.style.fontSize=next+'px';
-              // if we overflow after growing, step back and stop
-              if (cont.scrollHeight>available()) { body.style.fontSize=cur+'px'; break; }
-            }
-          }
-        }
-        // initial fit then refine, then print
-        fitOnce();
-        setTimeout(() => { refine(); setTimeout(() => { window.print(); window.onafterprint = () => window.close(); }, 50); }, 50);
-      })();
-    </script>
-    </body></html>`);
+  const win = window.open('', '_blank');
+  if (!win) { showToast('⚠️ Popup blocked — allow popups for this site to print.'); return; }
+  win.document.write(`<!doctype html><html><head><style>
+    @page { size: auto; margin: 18mm; }
+    body { font-family: Arial, sans-serif; font-size: 18px; line-height: 1.7; margin: 32px; color: #000; }
+    h1 { font-size: 1.3em; margin-bottom: 1.2rem; border-bottom: 2px solid #000; padding-bottom: 0.4rem; }
+    .line { break-inside: avoid; padding: .3rem 0; border-bottom: 1px solid #e5e5e5; }
+    strong { margin-right: .4rem; }
+    .t { opacity: .75; }
+    .tempo { opacity: .55; font-size: .85em; margin-left: .5rem; }
+  </style></head><body>
+    <h1>${currentSetlist || 'Setlist'}</h1>
+    <div id="printContent">${html}</div>
+  </body></html>`);
   win.document.close();
-  // onload is handled inside the injected script for sizing and printing
+  // onload fires after document.close() — more reliable than setTimeout on iOS Safari
+  win.onload = () => { win.focus(); win.print(); win.onafterprint = () => win.close(); };
+  // Fallback for browsers where onload may not fire on document.write content
+  setTimeout(() => { if (win && !win.closed) { win.focus(); win.print(); } }, 1200);
 };
 
 
 shareBtn.onclick = async () => {
-  console.log('Share button clicked');
   // Ensure URL/hash reflects the current set before composing link
   updateSetlistTitle();
   // Build shareable text: Title line with total time, then song names
@@ -1175,9 +1274,9 @@ shareBtn.onclick = async () => {
         try {
           // Include the deep link so recipients open the exact setlist
           await navigator.share({ title: 'Setlist', text, url: link });
-          showShareMessage('Setlist shared!');
+          showToast('Setlist shared!');
         } catch {
-          showShareMessage('Share canceled or failed.');
+          showToast('Share canceled or failed.');
         }
         menu.remove();
       };
@@ -1196,9 +1295,9 @@ shareBtn.onclick = async () => {
     copyTextBtn.onclick = async () => {
       try {
         await navigator.clipboard.writeText(text);
-        showShareMessage('Setlist copied to clipboard!');
+        showToast('Setlist copied to clipboard!');
       } catch {
-        showShareMessage('Clipboard blocked by browser.');
+        showToast('Clipboard blocked by browser.');
       }
       menu.remove();
     };
@@ -1216,9 +1315,9 @@ shareBtn.onclick = async () => {
     copyLinkBtn.onclick = async () => {
       try {
         await navigator.clipboard.writeText(link);
-        showShareMessage('Setlist link copied!');
+        showToast('Setlist link copied!');
       } catch {
-        showShareMessage('Clipboard blocked by browser.');
+        showToast('Clipboard blocked by browser.');
       }
       menu.remove();
     };
@@ -1238,28 +1337,8 @@ shareBtn.onclick = async () => {
 
     document.body.appendChild(menu);
 
-    function showShareMessage(msg) {
-      let messageEl = document.getElementById('shareMessage');
-      if (!messageEl) {
-        messageEl = document.createElement('div');
-        messageEl.id = 'shareMessage';
-        messageEl.style.position = 'fixed';
-        messageEl.style.bottom = '2rem';
-        messageEl.style.left = '50%';
-        messageEl.style.transform = 'translateX(-50%)';
-        messageEl.style.background = '#222';
-        messageEl.style.color = '#fff';
-        messageEl.style.padding = '0.7rem 1.2rem';
-        messageEl.style.borderRadius = '10px';
-        messageEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-        messageEl.style.zIndex = '9999';
-        document.body.appendChild(messageEl);
-      }
-      messageEl.textContent = msg;
-      setTimeout(() => { messageEl.textContent = ''; }, 2000);
-    }
   } catch (err) {
-    alert('Share menu failed to open.');
+    showToast('Share menu failed to open.');
     console.error('Share menu error:', err);
   }
 };

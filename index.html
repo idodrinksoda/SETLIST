@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>SETLIST</title>
   <!-- Cache-bust CSS so mobile always gets latest styles -->
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=7" />
   <!-- Firebase CDN SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -18,26 +20,40 @@
       storageBucket: "setlist-2095d.firebasestorage.app",
       messagingSenderId: "907520660063",
       appId: "1:907520660063:web:3e95bdc265a9d72b9201ea"
+      // NOTE: This client key is safe to expose in web apps, but you MUST
+      // configure Firebase Security Rules in the Firebase console so that
+      // only authenticated users can read/write bandData/* documents.
+      // Without rules anyone who finds this key can read or overwrite your data.
     };
     firebase.initializeApp(firebaseConfig);
   </script>
 </head>
 <body>
+  <!-- Full-screen spinner shown while Firebase resolves auth state -->
+  <div id="authSpinner" aria-label="Loading SETLIST…">
+    <div class="spinner-ring"></div>
+    <p class="spinner-label">SETLIST</p>
+  </div>
+
   <div id="authSection">
-    <form id="loginForm" style="display:none; margin-bottom:1.5rem;">
-  <input type="email" id="loginEmail" name="email" placeholder="Band Gmail" required style="padding:0.5rem; margin-right:0.5rem;" />
-  <input type="password" id="loginPassword" name="password" placeholder="Password" required style="padding:0.5rem; margin-right:0.5rem;" />
+    <form id="loginForm" style="display:none;">
+      <h1 class="login-title">SETLIST</h1>
+      <input type="email" id="loginEmail" name="email" placeholder="Band Gmail" autocomplete="email" required />
+      <input type="password" id="loginPassword" name="password" placeholder="Password" autocomplete="current-password" required />
       <button type="submit">Login</button>
+      <div id="authError"></div>
     </form>
-    <div id="userInfo" style="display:none; margin-bottom:1.5rem;">
+    <div id="userInfo" style="display:none;">
       <span id="userEmail"></span>
-      <button id="logoutBtn" style="margin-left:1rem;">Logout</button>
+      <button id="logoutBtn">Logout</button>
     </div>
-    <div id="authError" style="color:#ff2b6a; margin-bottom:1rem;"></div>
   </div>
   <header class="tab-header">
-    <button id="tabLibrary" class="active">🎵 Library</button>
-    <button id="tabSetlist">🎛 Setlist</button>
+    <span class="app-wordmark">SETLIST</span>
+    <div class="tab-pills">
+      <button id="tabLibrary" class="active">Library</button>
+      <button id="tabSetlist">Setlist</button>
+    </div>
   </header>
 
 
@@ -45,9 +61,15 @@
   <main id="libraryView">
     <h2 class="view-heading">Song Library</h2>
     <div class="library-controls">
-      <input type="text" id="libSongName" placeholder="Song name" />
-      <input type="text" id="libSongTime" placeholder="03:00" />
-      <button id="saveToLibrary">＋ Add Song</button>
+      <div class="add-song-wrap">
+        <button id="saveToLibrary">＋ Add Song</button>
+        <div id="addSongPanel" class="add-song-panel">
+          <input type="text" id="libSongName" placeholder="Song name" autocomplete="off" />
+          <input type="text" id="libSongTime" placeholder="Duration  03:00" autocomplete="off" />
+          <input type="text" id="libSongTempo" placeholder="BPM  (optional)" autocomplete="off" />
+          <button id="addSongConfirm">＋ Add</button>
+        </div>
+      </div>
     </div>
     <ul id="libraryList"></ul>
   </main>
@@ -62,9 +84,11 @@
       </div>
 
       <div class="setlist-actions">
-  <button id="printBtn">🖨️ Print</button>
-  <button id="shareBtn">🔗 Share</button>
-  <button id="clearAllBtn">🧹 Clear</button>
+  <button id="printBtn">Print</button>
+  <button id="shareBtn">Share</button>
+  <button id="dupSetlistBtn">Duplicate</button>
+  <button id="clearAllBtn">Clear</button>
+  <button id="deleteSetlistBtn" class="delete-setlist-btn-action">Delete</button>
       </div>
     </div>
 
@@ -84,6 +108,6 @@
   </template>
 
   <!-- Cache-bust JS so mobile always gets latest behavior -->
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=4"></script>
 </body>
 </html>
