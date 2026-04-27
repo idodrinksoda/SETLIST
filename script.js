@@ -266,17 +266,7 @@ function buildPlayer(audioUrl, autoplay) {
     return iframe;
   }
 
-  const spId = getSpotifyId(audioUrl);
-  if (spId) {
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://open.spotify.com/embed/track/${spId}${autoplay ? '?autoplay=1' : ''}`;
-    iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
-    iframe.setAttribute('allowtransparency', 'true');
-    iframe.className = 'song-embed song-embed--spotify';
-    return iframe;
-  }
-
-  // Native audio — Firebase Storage, Dropbox direct link, etc.
+  // Native audio — Firebase Storage URL, direct MP3/WAV/OGG link, etc.
   const audio = document.createElement('audio');
   audio.src = audioUrl;
   audio.controls = true;
@@ -708,8 +698,14 @@ function renderLibrary() {
     const audioInput = document.createElement('input');
     audioInput.className = 'lib-audio-url';
     audioInput.value = song.audioUrl || '';
-    audioInput.placeholder = 'YouTube, Spotify, or MP3 link';
-    audioInput.onblur = () => { library[i].audioUrl = audioInput.value.trim(); persistField(); };
+    audioInput.placeholder = 'YouTube link or direct audio URL';
+    audioInput.onblur = () => {
+      const newUrl = audioInput.value.trim();
+      library[i].audioUrl = newUrl;
+      // Sync to any setlist copies of this song (matched by name)
+      songs.forEach(s => { if (s.name === library[i].name) s.audioUrl = newUrl; });
+      persistField();
+    };
     audioInput.addEventListener('keydown', e => { if (e.key === 'Enter') audioInput.blur(); });
     audioRow.append(audioLabel2, audioInput);
     const uploadRow = document.createElement('div');
@@ -730,6 +726,8 @@ function renderLibrary() {
         const url = await uploadAudioFile(file);
         library[i].audioUrl = url;
         audioInput.value = url;
+        // Sync to any setlist copies of this song
+        songs.forEach(s => { if (s.name === library[i].name) s.audioUrl = url; });
         persist();
         infoBtn.classList.add('has-notes');
         showToast(`"${file.name}" uploaded`);
