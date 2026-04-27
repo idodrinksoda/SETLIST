@@ -707,7 +707,17 @@ function renderLibrary() {
       persistField();
     };
     audioInput.addEventListener('keydown', e => { if (e.key === 'Enter') audioInput.blur(); });
-    audioRow.append(audioLabel2, audioInput);
+    const testAudioBtn = document.createElement('button');
+    testAudioBtn.type = 'button';
+    testAudioBtn.className = 'lib-audio-test-btn';
+    testAudioBtn.textContent = '▶ Test';
+    testAudioBtn.title = 'Open audio URL in new tab to verify it works';
+    testAudioBtn.onclick = () => {
+      const url = audioInput.value.trim();
+      if (!url) { showToast('Enter a URL first'); return; }
+      window.open(url, '_blank', 'noopener');
+    };
+    audioRow.append(audioLabel2, audioInput, testAudioBtn);
     const uploadRow = document.createElement('div');
     uploadRow.className = 'lib-audio-upload-row';
     const uploadLabel = document.createElement('label');
@@ -1088,14 +1098,19 @@ function renderSetlist() {
         document.querySelectorAll('#setlist .song-player-wrap.open').forEach(w => { w.innerHTML = ''; w.classList.remove('open'); });
         document.querySelectorAll('#setlist .song-play-btn.playing').forEach(b => { b.textContent = '▶'; b.classList.remove('playing'); });
         playerWrap.classList.add('open');
-        if (song.audioUrl) {
+        // Always look up the freshest audioUrl: check library first, fall back to setlist copy
+        const libMatch = library.find(l => l.name === song.name);
+        const audioUrl = (libMatch && libMatch.audioUrl) || song.audioUrl || '';
+        if (audioUrl) {
+          // Keep setlist copy in sync
+          song.audioUrl = audioUrl;
           playBtn.textContent = '⏸'; playBtn.classList.add('playing');
-          const player = buildPlayer(song.audioUrl, true);
+          const player = buildPlayer(audioUrl, true);
           if (player) {
             playerWrap.appendChild(player);
             if (player.tagName === 'AUDIO') player.play().catch(() => {});
           } else {
-            playerWrap.innerHTML = '<p class="song-no-audio">Unable to embed this URL inline.</p>';
+            playerWrap.innerHTML = '<p class="song-no-audio">Unable to embed this URL.</p>';
           }
         } else {
           playerWrap.innerHTML = '<p class="song-no-audio">No audio source. Add one in the Library tab.</p>';
