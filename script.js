@@ -511,7 +511,7 @@ function updateTotal() {
 /* ===== Library (editable + add-to-setlist) ===== */
 
 // Creates a collapsible sub-section inside the lib-info panel
-function makeInfoSubSection(icon, title, hasContent) {
+function makeInfoSubSection(icon, title, hasContent, onOpen) {
   const wrap = document.createElement('div');
   wrap.className = 'lib-subsection';
   const header = document.createElement('button');
@@ -530,6 +530,7 @@ function makeInfoSubSection(icon, title, hasContent) {
     arrow.textContent = open ? '▴' : '▾';
     if (open) header.classList.add('open');
     else header.classList.remove('open');
+    if (open && onOpen) setTimeout(onOpen, 0);
   };
   wrap.append(header, body);
   return { wrap, body };
@@ -622,21 +623,25 @@ function renderLibrary() {
     // --- Collapsible sub-sections ---
 
     // Lyrics
-    const { wrap: lyricsWrap, body: lyricsBody } = makeInfoSubSection('🎵', 'Lyrics', !!song.lyrics);
     const lyrics = document.createElement('textarea');
     lyrics.className = 'lib-lyrics';
     lyrics.value = song.lyrics || '';
     lyrics.placeholder = 'Paste or type song lyrics here';
     lyrics.onblur = () => { library[i].lyrics = lyrics.value.trim(); persistField(); };
+    const autoResizeLyrics = () => { lyrics.style.height = 'auto'; lyrics.style.height = lyrics.scrollHeight + 'px'; };
+    lyrics.addEventListener('input', autoResizeLyrics);
+    const { wrap: lyricsWrap, body: lyricsBody } = makeInfoSubSection('🎵', 'Lyrics', !!song.lyrics, autoResizeLyrics);
     lyricsBody.appendChild(lyrics);
 
     // Notes
-    const { wrap: notesWrap, body: notesBody } = makeInfoSubSection('📝', 'Notes', !!song.notes);
     const notes = document.createElement('textarea');
     notes.className = 'lib-notes';
     notes.value = song.notes || '';
     notes.placeholder = 'Cues, arrangement notes, performance reminders…';
     notes.onblur = () => { library[i].notes = notes.value.trim(); persistField(); };
+    const autoResizeNotes = () => { notes.style.height = 'auto'; notes.style.height = notes.scrollHeight + 'px'; };
+    notes.addEventListener('input', autoResizeNotes);
+    const { wrap: notesWrap, body: notesBody } = makeInfoSubSection('📝', 'Notes', !!song.notes, autoResizeNotes);
     notesBody.appendChild(notes);
 
     // Score / Tab

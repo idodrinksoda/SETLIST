@@ -1010,8 +1010,10 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
   padding: 0.4rem 0.5rem;
   font-size: 0.9rem;
   font-family: inherit;
-  min-height: 4rem;
-  resize: vertical;
+  min-height: 2.4rem;
+  height: auto;
+  resize: none;
+  overflow: hidden;
   width: 100%;
   box-sizing: border-box;
 }
