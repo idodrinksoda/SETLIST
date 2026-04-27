@@ -772,6 +772,9 @@ button:not(.delete):active {
 .song-item.now-playing .song-name {
   color: var(--accent);
 }
+
+.delete {
+  background: none;
   color: var(--muted);
   font-size: 1.05rem;
   border: none;
