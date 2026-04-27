@@ -16,7 +16,7 @@
   <!-- Cache-bust CSS so mobile always gets latest styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="style.css?v=13" />
   <!-- Firebase CDN SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -48,9 +48,10 @@
   <div id="authSection">
     <form id="loginForm" style="display:none;">
       <h1 class="login-title">SETLIST</h1>
-      <input type="email" id="loginEmail" name="email" placeholder="Band Gmail" autocomplete="email" required />
+      <input type="email" id="loginEmail" name="email" placeholder="Email" autocomplete="email" required />
       <input type="password" id="loginPassword" name="password" placeholder="Password" autocomplete="current-password" required />
-      <button type="submit">Login</button>
+      <button type="submit" id="loginSubmitBtn">Login</button>
+      <button type="button" id="loginToggleBtn" class="login-toggle-btn">No account? Create one</button>
       <div id="authError"></div>
     </form>
     <div id="userInfo" style="display:none;">
@@ -121,7 +122,7 @@
   </template>
 
   <!-- Cache-bust JS so mobile always gets latest behavior -->
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=12"></script>
 
   <!-- Register service worker for PWA / offline support -->
   <script>

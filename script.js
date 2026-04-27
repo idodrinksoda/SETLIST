@@ -129,11 +129,37 @@ auth.onAuthStateChanged(user => {
   }
 });
 
+let authMode = 'login'; // 'login' | 'signup'
+const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+const loginToggleBtn = document.getElementById('loginToggleBtn');
+
+loginToggleBtn.addEventListener('click', () => {
+  authError.textContent = '';
+  if (authMode === 'login') {
+    authMode = 'signup';
+    loginSubmitBtn.textContent = 'Create Account';
+    loginToggleBtn.textContent = 'Already have an account? Login';
+    loginPassword.autocomplete = 'new-password';
+  } else {
+    authMode = 'login';
+    loginSubmitBtn.textContent = 'Login';
+    loginToggleBtn.textContent = 'No account? Create one';
+    loginPassword.autocomplete = 'current-password';
+  }
+});
+
 loginForm.addEventListener('submit', e => {
   e.preventDefault();
   authError.textContent = '';
-  auth.signInWithEmailAndPassword(loginEmail.value, loginPassword.value)
-    .catch(err => { authError.textContent = err.message; });
+  const email = loginEmail.value;
+  const password = loginPassword.value;
+  if (authMode === 'signup') {
+    auth.createUserWithEmailAndPassword(email, password)
+      .catch(err => { authError.textContent = err.message; });
+  } else {
+    auth.signInWithEmailAndPassword(email, password)
+      .catch(err => { authError.textContent = err.message; });
+  }
 });
 
 logoutBtn.addEventListener('click', () => {

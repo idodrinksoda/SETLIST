@@ -86,6 +86,22 @@
   margin-top: 0.25rem;
 }
 
+.login-toggle-btn {
+  width: 100%;
+  max-width: 380px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.4rem 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.login-toggle-btn:hover {
+  color: var(--accent);
+}
+
 #authError {
   width: 100%;
   max-width: 380px;
