@@ -749,17 +749,6 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
   display: block;
 }
 
-.song-embed {
-  width: 100%;
-  border: none;
-  border-radius: var(--radius);
-  height: 315px;
-  display: block;
-}
-.song-embed--spotify {
-  height: 82px;
-}
-
 .song-no-audio {
   margin: 0;
   padding: 0.35rem 0;
@@ -1051,39 +1040,6 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
   background: rgba(192, 81, 63, 0.15) !important;
   border-color: var(--danger);
   color: var(--danger);
-}
-
-/* Library audio URL row */
-.lib-audio-row input.lib-audio-url {
-  flex: 1;
-  min-width: 0;
-  background: #0d0d0d;
-  color: var(--fg);
-  border-radius: var(--radius);
-  border: 1px solid rgba(212, 207, 201, 0.1);
-  padding: 0.38rem 0.55rem;
-  font-size: 0.9rem;
-  font-family: inherit;
-}
-.lib-audio-row input.lib-audio-url:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
-.lib-audio-test-btn {
-  flex-shrink: 0;
-  background: none;
-  border: 1px solid rgba(212, 207, 201, 0.2);
-  border-radius: var(--radius);
-  color: var(--muted);
-  padding: 0.3rem 0.6rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.lib-audio-test-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 /* Library audio upload row */

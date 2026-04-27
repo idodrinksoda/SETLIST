@@ -237,36 +237,8 @@ async function uploadScoreFile(file) {
   return await ref.getDownloadURL();
 }
 
-function getYouTubeId(url) {
-  const match = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/);
-  return match ? match[1] : null;
-}
-
-function getSpotifyId(url) {
-  const match = url.match(/spotify\.com\/(?:[a-z-]+\/)?track\/([^?/\s]+)/);
-  return match ? match[1] : null;
-}
-
-/**
- * Build a playable DOM element for the given audio URL.
- * @param {string} audioUrl
- * @param {boolean} autoplay
- * @returns {HTMLElement|null}
- */
 function buildPlayer(audioUrl, autoplay) {
   if (!audioUrl) return null;
-
-  const ytId = getYouTubeId(audioUrl);
-  if (ytId) {
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://www.youtube.com/embed/${ytId}${autoplay ? '?autoplay=1&rel=0' : '?rel=0'}`;
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-    iframe.setAttribute('allowfullscreen', '');
-    iframe.className = 'song-embed';
-    return iframe;
-  }
-
-  // Native audio — Firebase Storage URL, direct MP3/WAV/OGG link, etc.
   const audio = document.createElement('audio');
   audio.src = audioUrl;
   audio.controls = true;
@@ -690,34 +662,6 @@ function renderLibrary() {
 
     // Audio
     const { wrap: audioWrap, body: audioBody } = makeInfoSubSection('🎧', 'Audio', !!song.audioUrl);
-    const audioRow = document.createElement('div');
-    audioRow.className = 'lib-info-row lib-audio-row';
-    const audioLabel2 = document.createElement('span');
-    audioLabel2.className = 'lib-info-label';
-    audioLabel2.textContent = 'URL';
-    const audioInput = document.createElement('input');
-    audioInput.className = 'lib-audio-url';
-    audioInput.value = song.audioUrl || '';
-    audioInput.placeholder = 'YouTube link or direct audio URL';
-    audioInput.onblur = () => {
-      const newUrl = audioInput.value.trim();
-      library[i].audioUrl = newUrl;
-      // Sync to any setlist copies of this song (matched by name)
-      songs.forEach(s => { if (s.name === library[i].name) s.audioUrl = newUrl; });
-      persistField();
-    };
-    audioInput.addEventListener('keydown', e => { if (e.key === 'Enter') audioInput.blur(); });
-    const testAudioBtn = document.createElement('button');
-    testAudioBtn.type = 'button';
-    testAudioBtn.className = 'lib-audio-test-btn';
-    testAudioBtn.textContent = '▶ Test';
-    testAudioBtn.title = 'Open audio URL in new tab to verify it works';
-    testAudioBtn.onclick = () => {
-      const url = audioInput.value.trim();
-      if (!url) { showToast('Enter a URL first'); return; }
-      window.open(url, '_blank', 'noopener');
-    };
-    audioRow.append(audioLabel2, audioInput, testAudioBtn);
     const uploadRow = document.createElement('div');
     uploadRow.className = 'lib-audio-upload-row';
     const uploadLabel = document.createElement('label');
@@ -735,7 +679,6 @@ function renderLibrary() {
       try {
         const url = await uploadAudioFile(file);
         library[i].audioUrl = url;
-        audioInput.value = url;
         // Sync to any setlist copies of this song
         songs.forEach(s => { if (s.name === library[i].name) s.audioUrl = url; });
         persist();
@@ -750,7 +693,7 @@ function renderLibrary() {
     });
     uploadLabel.append(uploadText, fileInput);
     uploadRow.appendChild(uploadLabel);
-    audioBody.append(audioRow, uploadRow);
+    audioBody.appendChild(uploadRow);
 
     infoPanel.append(nameEditRow, timeEditRow, tempoRow, keyRow, lyricsWrap, notesWrap, scoreWrap, audioWrap);
 
