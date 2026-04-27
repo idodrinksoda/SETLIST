@@ -667,6 +667,7 @@ button:not(.delete):active {
 
 .song-item {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   background: linear-gradient(135deg, #141414, #0e0e0e);
@@ -701,8 +702,76 @@ button:not(.delete):active {
 .song-item .drag-handle:hover { color: var(--fg); }
 .song-item.dragging .drag-handle, .song-item.touch-dragging .drag-handle { cursor: grabbing; }
 
-.delete {
+/* Per-song play button */
+.song-play-btn {
+  flex: 0 0 auto;
   background: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+  border: none;
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.song-play-btn:hover {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+.song-play-btn.playing {
+  color: var(--accent);
+}
+.song-play-btn.has-audio {
+  color: rgba(212, 207, 201, 0.55);
+}
+
+/* Inline player area (expands below the song row) */
+.song-player-wrap {
+  flex: 1 0 100%;
+  display: none;
+  padding-top: 0.6rem;
+}
+.song-player-wrap.open {
+  display: block;
+}
+
+.song-audio {
+  width: 100%;
+  height: 38px;
+  border-radius: var(--radius);
+  outline: none;
+  display: block;
+}
+
+.song-embed {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius);
+  height: 315px;
+  display: block;
+}
+.song-embed--spotify {
+  height: 82px;
+}
+
+.song-no-audio {
+  margin: 0;
+  padding: 0.35rem 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Now-playing highlight during Play Set */
+.song-item.now-playing {
+  border-left-color: var(--accent);
+  background: linear-gradient(135deg, #1c1c14, #0e0e0e);
+  box-shadow: 0 0 0 1px rgba(212, 207, 201, 0.08);
+}
+.song-item.now-playing .song-name {
+  color: var(--accent);
+}
   color: var(--muted);
   font-size: 1.05rem;
   border: none;
@@ -871,7 +940,70 @@ button:not(.delete):active {
   }
 }
 
-/* ===== Toast notification ===== */
+/* Play Set button */
+#playSetBtn {
+  background: none;
+  border: 1px solid rgba(212, 207, 201, 0.28);
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+#playSetBtn:hover {
+  background: var(--accent-soft) !important;
+  border-color: var(--accent);
+}
+#playSetBtn.active {
+  background: rgba(192, 81, 63, 0.15) !important;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Library audio URL row */
+.lib-audio-row input.lib-audio-url {
+  flex: 1;
+  min-width: 0;
+  background: #0d0d0d;
+  color: var(--fg);
+  border-radius: var(--radius);
+  border: 1px solid rgba(212, 207, 201, 0.1);
+  padding: 0.38rem 0.55rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.lib-audio-row input.lib-audio-url:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Library audio upload row */
+.lib-audio-upload-row {
+  margin-top: 0.1rem;
+}
+.lib-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  background: none;
+  border: 1px dashed rgba(212, 207, 201, 0.22);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 0.38rem 0.7rem;
+  transition: border-color 0.18s, color 0.18s;
+  user-select: none;
+}
+.lib-upload-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.lib-file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
 #toastBar {
   position: fixed;
   bottom: 1.75rem;

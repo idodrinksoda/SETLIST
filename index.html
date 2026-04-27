@@ -4,6 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>SETLIST</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SETLIST" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+
   <!-- Cache-bust CSS so mobile always gets latest styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
@@ -12,6 +21,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCl2aC0esqBrkAMh1dZoYBX711sctfWc3Q",
@@ -83,8 +93,7 @@
   <div id="setlistDropdown" class="dropdown-content"></div>
       </div>
 
-      <div class="setlist-actions">
-  <button id="printBtn">Print</button>
+      <div class="setlist-actions">      <button id="playSetBtn">▶ Play Set</button>  <button id="printBtn">Print</button>
   <button id="shareBtn">Share</button>
   <button id="dupSetlistBtn">Duplicate</button>
   <button id="clearAllBtn">Clear</button>
@@ -103,11 +112,24 @@
       <span class="song-name"></span>
       <span class="song-time"></span>
       <span class="song-tempo"></span>
+      <button class="song-play-btn" aria-label="Play song" title="Play song">▶</button>
       <button class="delete" aria-label="Delete song">🗑️</button>
+      <div class="song-player-wrap"></div>
     </li>
   </template>
 
   <!-- Cache-bust JS so mobile always gets latest behavior -->
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
+
+  <!-- Register service worker for PWA / offline support -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => {
+          console.warn('SW registration failed:', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 // ===== Firebase Auth UI + Firestore Sync (CDN compat) =====
 const auth = firebase.auth();
 const db = firebase.firestore();
+const storage = firebase.storage();
 // Enable offline persistence (best-effort). Ignore if unsupported or in multi-tab conflict.
 try { firebase.firestore().enablePersistence({ synchronizeTabs: true }); }
 catch (e) { console.warn('Firestore persistence not enabled:', e && e.code ? e.code : e); }
@@ -204,6 +205,9 @@ let allSetlists = {};
 let currentSetlist = '';
 let songs = [];
 
+/* ===== Play Set state ===== */
+let playSetState = { active: false, index: -1, timer: null };
+
 function persist() {
   // Only persist a named setlist; when no setlist is selected,
   // we still persist the library but leave allSetlists as-is.
@@ -211,6 +215,165 @@ function persist() {
     allSetlists[currentSetlist] = songs;
   }
   persistFirestore();
+}
+
+/* ===== Audio helpers ===== */
+
+async function uploadAudioFile(file) {
+  if (!auth.currentUser) throw new Error('Not signed in');
+  const safeName = file.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
+  const path = `bandData/audio/${Date.now()}_${safeName}`;
+  const ref = storage.ref(path);
+  await ref.put(file);
+  return await ref.getDownloadURL();
+}
+
+function getYouTubeId(url) {
+  const match = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/);
+  return match ? match[1] : null;
+}
+
+function getSpotifyId(url) {
+  const match = url.match(/spotify\.com\/(?:[a-z-]+\/)?track\/([^?/\s]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Build a playable DOM element for the given audio URL.
+ * @param {string} audioUrl
+ * @param {boolean} autoplay
+ * @returns {HTMLElement|null}
+ */
+function buildPlayer(audioUrl, autoplay) {
+  if (!audioUrl) return null;
+
+  const ytId = getYouTubeId(audioUrl);
+  if (ytId) {
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.youtube.com/embed/${ytId}${autoplay ? '?autoplay=1&rel=0' : '?rel=0'}`;
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+    iframe.allowFullscreen = true;
+    iframe.className = 'song-embed';
+    return iframe;
+  }
+
+  const spId = getSpotifyId(audioUrl);
+  if (spId) {
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://open.spotify.com/embed/track/${spId}${autoplay ? '?autoplay=1' : ''}`;
+    iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+    iframe.setAttribute('allowtransparency', 'true');
+    iframe.className = 'song-embed song-embed--spotify';
+    return iframe;
+  }
+
+  // Native audio — Firebase Storage, Dropbox direct link, etc.
+  const audio = document.createElement('audio');
+  audio.src = audioUrl;
+  audio.controls = true;
+  audio.preload = 'metadata';
+  audio.className = 'song-audio';
+  if (autoplay) audio.autoplay = true;
+  return audio;
+}
+
+/* ===== Play Set ===== */
+
+function updatePlaySetUI() {
+  const btn = document.getElementById('playSetBtn');
+  if (!btn) return;
+  if (playSetState.active) {
+    btn.textContent = '⏹ Stop Set';
+    btn.classList.add('active');
+  } else {
+    btn.textContent = '▶ Play Set';
+    btn.classList.remove('active');
+  }
+}
+
+function stopPlaySet(updateUI = true) {
+  if (playSetState.timer) { clearTimeout(playSetState.timer); playSetState.timer = null; }
+  document.querySelectorAll('#setlist .song-player-wrap.open').forEach(w => {
+    w.innerHTML = ''; w.classList.remove('open');
+  });
+  document.querySelectorAll('#setlist .song-play-btn.playing').forEach(b => {
+    b.textContent = '▶'; b.classList.remove('playing');
+  });
+  document.querySelectorAll('#setlist .song-item.now-playing').forEach(el => el.classList.remove('now-playing'));
+  playSetState.active = false;
+  playSetState.index = -1;
+  if (updateUI) updatePlaySetUI();
+}
+
+function playSetToIndex(i) {
+  if (!playSetState.active) return;
+  if (i >= songs.length) {
+    stopPlaySet();
+    showToast('✓ Set complete!');
+    return;
+  }
+
+  playSetState.index = i;
+  const song = songs[i];
+  const items = [...document.querySelectorAll('#setlist .song-item')];
+
+  // Highlight current song, close others
+  items.forEach((el, idx) => {
+    el.classList.toggle('now-playing', idx === i);
+    const btn = el.querySelector('.song-play-btn');
+    if (btn) { btn.textContent = idx === i ? '⏸' : '▶'; btn.classList.toggle('playing', idx === i); }
+    const wrap = el.querySelector('.song-player-wrap');
+    if (wrap && idx !== i) { wrap.innerHTML = ''; wrap.classList.remove('open'); }
+  });
+
+  const item = items[i];
+  if (!item) return;
+  item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  const wrap = item.querySelector('.song-player-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  wrap.classList.add('open');
+
+  if (!song.audioUrl) {
+    const msg = document.createElement('p');
+    msg.className = 'song-no-audio';
+    msg.textContent = 'No audio source — advancing after song duration…';
+    wrap.appendChild(msg);
+    const dur = Math.max(parseTime(song.time) * 1000, 3000);
+    playSetState.timer = setTimeout(() => playSetToIndex(i + 1), dur);
+    return;
+  }
+
+  const player = buildPlayer(song.audioUrl, true);
+  if (!player) {
+    playSetState.timer = setTimeout(() => playSetToIndex(i + 1), Math.max(parseTime(song.time) * 1000, 3000));
+    return;
+  }
+
+  wrap.appendChild(player);
+
+  if (player.tagName === 'AUDIO') {
+    player.addEventListener('ended', () => playSetToIndex(i + 1));
+    player.play().catch(() => {
+      // Autoplay blocked — use song duration as fallback timer
+      const dur = Math.max(parseTime(song.time) * 1000, 3000);
+      playSetState.timer = setTimeout(() => playSetToIndex(i + 1), dur);
+    });
+  } else {
+    // YouTube / Spotify iframe — advance after the song's listed duration
+    const dur = Math.max(parseTime(song.time) * 1000, 30000);
+    playSetState.timer = setTimeout(() => playSetToIndex(i + 1), dur);
+  }
+}
+
+function startPlaySet() {
+  if (!songs.length) { showToast('No songs in the setlist.'); return; }
+  if (!currentSetlist) { showToast('No setlist selected.'); return; }
+  stopPlaySet(false);
+  playSetState.active = true;
+  updatePlaySetUI();
+  playSetToIndex(0);
 }
 
 // Debounced persist for inline field edits — avoids a Firestore write per keystroke
@@ -417,7 +580,53 @@ function renderLibrary() {
     lyrics.placeholder = 'Lyrics, cues, or notes for this song';
     lyrics.onblur = () => { library[i].lyrics = lyrics.value.trim(); persistField(); };
 
-    infoPanel.append(nameEditRow, timeEditRow, tempoRow, lyricsLabel, lyrics);
+    // Audio source
+    const audioRow = document.createElement('div');
+    audioRow.className = 'lib-info-row lib-audio-row';
+    const audioLabel2 = document.createElement('span');
+    audioLabel2.className = 'lib-info-label';
+    audioLabel2.textContent = 'Audio URL';
+    const audioInput = document.createElement('input');
+    audioInput.className = 'lib-audio-url';
+    audioInput.value = song.audioUrl || '';
+    audioInput.placeholder = 'YouTube, Spotify, or MP3 link';
+    audioInput.onblur = () => { library[i].audioUrl = audioInput.value.trim(); persistField(); };
+    audioInput.addEventListener('keydown', e => { if (e.key === 'Enter') audioInput.blur(); });
+    audioRow.append(audioLabel2, audioInput);
+
+    // File upload row
+    const uploadRow = document.createElement('div');
+    uploadRow.className = 'lib-audio-upload-row';
+    const uploadLabel = document.createElement('label');
+    uploadLabel.className = 'lib-upload-btn';
+    const uploadText = document.createElement('span');
+    uploadText.textContent = '⬆ Upload audio file';
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'audio/*';
+    fileInput.className = 'lib-file-input';
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      uploadText.textContent = '⏳ Uploading…';
+      try {
+        const url = await uploadAudioFile(file);
+        library[i].audioUrl = url;
+        audioInput.value = url;
+        persist();
+        infoBtn.classList.add('has-notes');
+        showToast(`"${file.name}" uploaded`);
+        uploadText.textContent = '✓ Uploaded';
+        setTimeout(() => { uploadText.textContent = '⬆ Upload audio file'; }, 2500);
+      } catch (err) {
+        showToast('Upload failed: ' + (err && err.message ? err.message : 'unknown error'));
+        uploadText.textContent = '⬆ Upload audio file';
+      }
+    });
+    uploadLabel.append(uploadText, fileInput);
+    uploadRow.appendChild(uploadLabel);
+
+    infoPanel.append(nameEditRow, timeEditRow, tempoRow, lyricsLabel, lyrics, audioRow, uploadRow);
 
     const delBtn = document.createElement('button');
     delBtn.textContent = '🗑️ Delete from library';
@@ -431,7 +640,7 @@ function renderLibrary() {
     // Info toggle button
     const infoBtn = document.createElement('button');
     infoBtn.className = 'lib-info-toggle';
-    if (song.lyrics || song.tempo) infoBtn.classList.add('has-notes');
+    if (song.lyrics || song.tempo || song.audioUrl) infoBtn.classList.add('has-notes');
     infoBtn.textContent = 'ℹ️';
     infoBtn.title = 'Edit song details';
     infoBtn.onclick = () => {
@@ -717,6 +926,9 @@ addSongConfirm.onclick = doAddSong;
 
 /* ===== Setlist (read-only + draggable) ===== */
 function renderSetlist() {
+  // Stop any active play-set session before rebuilding the DOM
+  if (playSetState.active) stopPlaySet(true);
+
   setlist.innerHTML = '';
   songs.forEach((song, i) => {
     const item = songTemplate.content.cloneNode(true).children[0];
@@ -733,6 +945,39 @@ function renderSetlist() {
       songs.splice(i, 1);
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     };
+
+    // Per-song play button
+    const playBtn  = item.querySelector('.song-play-btn');
+    const playerWrap = item.querySelector('.song-player-wrap');
+    if (playBtn) {
+      if (song.audioUrl) playBtn.classList.add('has-audio');
+      playBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (playSetState.active) stopPlaySet();
+        const isOpen = playerWrap.classList.contains('open');
+        if (isOpen) {
+          playerWrap.innerHTML = ''; playerWrap.classList.remove('open');
+          playBtn.textContent = '▶'; playBtn.classList.remove('playing');
+          return;
+        }
+        // Close any other open inline players
+        document.querySelectorAll('#setlist .song-player-wrap.open').forEach(w => { w.innerHTML = ''; w.classList.remove('open'); });
+        document.querySelectorAll('#setlist .song-play-btn.playing').forEach(b => { b.textContent = '▶'; b.classList.remove('playing'); });
+        playerWrap.classList.add('open');
+        if (song.audioUrl) {
+          playBtn.textContent = '⏸'; playBtn.classList.add('playing');
+          const player = buildPlayer(song.audioUrl, true);
+          if (player) {
+            playerWrap.appendChild(player);
+            if (player.tagName === 'AUDIO') player.play().catch(() => {});
+          } else {
+            playerWrap.innerHTML = '<p class="song-no-audio">Unable to embed this URL inline.</p>';
+          }
+        } else {
+          playerWrap.innerHTML = '<p class="song-no-audio">No audio source. Add one in the Library tab.</p>';
+        }
+      };
+    }
 
     // drag handlers
     item.addEventListener('dragstart', (e) => {
@@ -1345,9 +1590,18 @@ shareBtn.onclick = async () => {
 
 /* ===== Init ===== */
 
+// Play Set button
+const playSetBtn = document.getElementById('playSetBtn');
+if (playSetBtn) {
+  playSetBtn.onclick = () => {
+    if (playSetState.active) { stopPlaySet(); } else { startPlaySet(); }
+  };
+}
+
 renderLibrary();
 renderSetlist();
 renderDropdown();
 updateTotal();
 updateSetlistTitle();
 setupSetlistNameEditing();
+updatePlaySetUI();
