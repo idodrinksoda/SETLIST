@@ -260,8 +260,8 @@ function buildPlayer(audioUrl, autoplay) {
   if (ytId) {
     const iframe = document.createElement('iframe');
     iframe.src = `https://www.youtube.com/embed/${ytId}${autoplay ? '?autoplay=1&rel=0' : '?rel=0'}`;
-    iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
-    iframe.allowFullscreen = true;
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.setAttribute('allowfullscreen', '');
     iframe.className = 'song-embed';
     return iframe;
   }
