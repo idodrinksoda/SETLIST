@@ -223,8 +223,8 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:not(.delete):not(.song-play-btn):hover { background: #c0bbb5; }
-button:not(.delete):not(.song-play-btn):active {
+button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):hover { background: #c0bbb5; }
+button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
   transform: scale(0.97);
   filter: brightness(1.05);
 }
@@ -406,7 +406,7 @@ button:not(.delete):not(.song-play-btn):active {
 }
 
 .lib-info.open {
-  max-height: 420px;
+  max-height: 1400px;
   opacity: 1;
   padding-top: 0.5rem;
   border-top-color: rgba(212, 207, 201, 0.08);
@@ -943,7 +943,92 @@ button:not(.delete):not(.song-play-btn):active {
   }
 }
 
-/* Play Set button */
+/* Collapsible sub-sections inside lib-info panel */
+.lib-subsection {
+  border-top: 1px solid rgba(212, 207, 201, 0.07);
+  margin-top: 0.15rem;
+}
+
+.lib-subsection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none !important;
+  border: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  padding: 0.5rem 0 0.35rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.lib-subsection-header:hover {
+  color: var(--fg);
+}
+.lib-subsection-header.has-content {
+  color: var(--accent);
+  opacity: 0.85;
+}
+.lib-subsection-header.open {
+  color: var(--fg);
+  opacity: 1;
+}
+
+.lib-subsection-arrow {
+  font-size: 0.65rem;
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.lib-subsection-body {
+  display: none;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+}
+.lib-subsection-body.open {
+  display: flex;
+}
+
+/* Textareas inside sub-sections */
+.lib-subsection-body textarea {
+  background: #0d0d0d;
+  color: var(--fg);
+  border-radius: var(--radius);
+  border: 1px solid rgba(212, 207, 201, 0.1);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  min-height: 4rem;
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+.lib-subsection-body textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* View score / tab link */
+.lib-view-score-btn {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.lib-view-score-btn:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
 #playSetBtn {
   background: none;
   border: 1px solid rgba(212, 207, 201, 0.28);

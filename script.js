@@ -228,6 +228,15 @@ async function uploadAudioFile(file) {
   return await ref.getDownloadURL();
 }
 
+async function uploadScoreFile(file) {
+  if (!auth.currentUser) throw new Error('Not signed in');
+  const safeName = file.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
+  const path = `bandData/scores/${Date.now()}_${safeName}`;
+  const ref = storage.ref(path);
+  await ref.put(file);
+  return await ref.getDownloadURL();
+}
+
 function getYouTubeId(url) {
   const match = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/);
   return match ? match[1] : null;
@@ -500,6 +509,32 @@ function updateTotal() {
 }
 
 /* ===== Library (editable + add-to-setlist) ===== */
+
+// Creates a collapsible sub-section inside the lib-info panel
+function makeInfoSubSection(icon, title, hasContent) {
+  const wrap = document.createElement('div');
+  wrap.className = 'lib-subsection';
+  const header = document.createElement('button');
+  header.type = 'button';
+  header.className = 'lib-subsection-header' + (hasContent ? ' has-content' : '');
+  const headerLeft = document.createElement('span');
+  headerLeft.textContent = `${icon} ${title}`;
+  const arrow = document.createElement('span');
+  arrow.className = 'lib-subsection-arrow';
+  arrow.textContent = '▾';
+  header.append(headerLeft, arrow);
+  const body = document.createElement('div');
+  body.className = 'lib-subsection-body';
+  header.onclick = () => {
+    const open = body.classList.toggle('open');
+    arrow.textContent = open ? '▴' : '▾';
+    if (open) header.classList.add('open');
+    else header.classList.remove('open');
+  };
+  wrap.append(header, body);
+  return { wrap, body };
+}
+
 function renderLibrary() {
   libraryList.innerHTML = '';
   library.forEach((song, i) => {
@@ -570,22 +605,101 @@ function renderLibrary() {
     tempo.addEventListener('keydown', e => { if (e.key === 'Enter') tempo.blur(); });
     tempoRow.append(tempoLabel, tempo);
 
+    // Key
+    const keyRow = document.createElement('div');
+    keyRow.className = 'lib-info-row';
+    const keyLabel = document.createElement('span');
+    keyLabel.className = 'lib-info-label';
+    keyLabel.textContent = 'Key';
+    const keyInput = document.createElement('input');
+    keyInput.className = 'lib-key';
+    keyInput.value = song.key || '';
+    keyInput.placeholder = 'e.g. Am, G major';
+    keyInput.onblur = () => { library[i].key = keyInput.value.trim(); persistField(); };
+    keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') keyInput.blur(); });
+    keyRow.append(keyLabel, keyInput);
+
+    // --- Collapsible sub-sections ---
+
     // Lyrics
-    const lyricsLabel = document.createElement('span');
-    lyricsLabel.className = 'lib-info-label';
-    lyricsLabel.textContent = 'Lyrics / Notes';
+    const { wrap: lyricsWrap, body: lyricsBody } = makeInfoSubSection('🎵', 'Lyrics', !!song.lyrics);
     const lyrics = document.createElement('textarea');
     lyrics.className = 'lib-lyrics';
     lyrics.value = song.lyrics || '';
-    lyrics.placeholder = 'Lyrics, cues, or notes for this song';
+    lyrics.placeholder = 'Paste or type song lyrics here';
     lyrics.onblur = () => { library[i].lyrics = lyrics.value.trim(); persistField(); };
+    lyricsBody.appendChild(lyrics);
 
-    // Audio source
+    // Notes
+    const { wrap: notesWrap, body: notesBody } = makeInfoSubSection('📝', 'Notes', !!song.notes);
+    const notes = document.createElement('textarea');
+    notes.className = 'lib-notes';
+    notes.value = song.notes || '';
+    notes.placeholder = 'Cues, arrangement notes, performance reminders…';
+    notes.onblur = () => { library[i].notes = notes.value.trim(); persistField(); };
+    notesBody.appendChild(notes);
+
+    // Score / Tab
+    const { wrap: scoreWrap, body: scoreBody } = makeInfoSubSection('🎼', 'Score / Tab', !!song.scoreUrl);
+    const scoreUrlRow = document.createElement('div');
+    scoreUrlRow.className = 'lib-info-row lib-audio-row';
+    const scoreUrlLabel = document.createElement('span');
+    scoreUrlLabel.className = 'lib-info-label';
+    scoreUrlLabel.textContent = 'Link';
+    const scoreUrlInput = document.createElement('input');
+    scoreUrlInput.className = 'lib-score-url';
+    scoreUrlInput.value = song.scoreUrl || '';
+    scoreUrlInput.placeholder = 'URL to PDF, image, or tab site';
+    scoreUrlInput.onblur = () => { library[i].scoreUrl = scoreUrlInput.value.trim(); persistField(); };
+    scoreUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') scoreUrlInput.blur(); });
+    scoreUrlRow.append(scoreUrlLabel, scoreUrlInput);
+    const scoreUploadRow = document.createElement('div');
+    scoreUploadRow.className = 'lib-audio-upload-row';
+    const scoreUploadLabel = document.createElement('label');
+    scoreUploadLabel.className = 'lib-upload-btn';
+    const scoreUploadText = document.createElement('span');
+    scoreUploadText.textContent = '⬆ Upload score / tab file';
+    const scoreFileInput = document.createElement('input');
+    scoreFileInput.type = 'file';
+    scoreFileInput.accept = '.pdf,.png,.jpg,.jpeg,.gif,.webp';
+    scoreFileInput.className = 'lib-file-input';
+    scoreFileInput.addEventListener('change', async () => {
+      const file = scoreFileInput.files[0];
+      if (!file) return;
+      scoreUploadText.textContent = '⏳ Uploading…';
+      try {
+        const url = await uploadScoreFile(file);
+        library[i].scoreUrl = url;
+        scoreUrlInput.value = url;
+        persist();
+        showToast(`"${file.name}" uploaded`);
+        scoreUploadText.textContent = '✓ Uploaded';
+        setTimeout(() => { scoreUploadText.textContent = '⬆ Upload score / tab file'; }, 2500);
+      } catch (err) {
+        showToast('Upload failed: ' + (err && err.message ? err.message : 'unknown error'));
+        scoreUploadText.textContent = '⬆ Upload score / tab file';
+      }
+    });
+    scoreUploadLabel.append(scoreUploadText, scoreFileInput);
+    scoreUploadRow.appendChild(scoreUploadLabel);
+    scoreBody.append(scoreUrlRow, scoreUploadRow);
+    if (song.scoreUrl) {
+      const viewScoreLink = document.createElement('a');
+      viewScoreLink.href = song.scoreUrl;
+      viewScoreLink.target = '_blank';
+      viewScoreLink.rel = 'noopener noreferrer';
+      viewScoreLink.className = 'lib-view-score-btn';
+      viewScoreLink.textContent = '🔗 View score / tab';
+      scoreBody.appendChild(viewScoreLink);
+    }
+
+    // Audio
+    const { wrap: audioWrap, body: audioBody } = makeInfoSubSection('🎧', 'Audio', !!song.audioUrl);
     const audioRow = document.createElement('div');
     audioRow.className = 'lib-info-row lib-audio-row';
     const audioLabel2 = document.createElement('span');
     audioLabel2.className = 'lib-info-label';
-    audioLabel2.textContent = 'Audio URL';
+    audioLabel2.textContent = 'URL';
     const audioInput = document.createElement('input');
     audioInput.className = 'lib-audio-url';
     audioInput.value = song.audioUrl || '';
@@ -593,8 +707,6 @@ function renderLibrary() {
     audioInput.onblur = () => { library[i].audioUrl = audioInput.value.trim(); persistField(); };
     audioInput.addEventListener('keydown', e => { if (e.key === 'Enter') audioInput.blur(); });
     audioRow.append(audioLabel2, audioInput);
-
-    // File upload row
     const uploadRow = document.createElement('div');
     uploadRow.className = 'lib-audio-upload-row';
     const uploadLabel = document.createElement('label');
@@ -625,8 +737,9 @@ function renderLibrary() {
     });
     uploadLabel.append(uploadText, fileInput);
     uploadRow.appendChild(uploadLabel);
+    audioBody.append(audioRow, uploadRow);
 
-    infoPanel.append(nameEditRow, timeEditRow, tempoRow, lyricsLabel, lyrics, audioRow, uploadRow);
+    infoPanel.append(nameEditRow, timeEditRow, tempoRow, keyRow, lyricsWrap, notesWrap, scoreWrap, audioWrap);
 
     const delBtn = document.createElement('button');
     delBtn.textContent = '🗑️ Delete from library';
@@ -640,7 +753,7 @@ function renderLibrary() {
     // Info toggle button
     const infoBtn = document.createElement('button');
     infoBtn.className = 'lib-info-toggle';
-    if (song.lyrics || song.tempo || song.audioUrl) infoBtn.classList.add('has-notes');
+    if (song.lyrics || song.notes || song.key || song.audioUrl || song.scoreUrl || song.tempo) infoBtn.classList.add('has-notes');
     infoBtn.textContent = 'ℹ️';
     infoBtn.title = 'Edit song details';
     infoBtn.onclick = () => {
@@ -660,7 +773,7 @@ function renderLibrary() {
         return;
       }
       const src = library[i] || {};
-      const copy = { name: src.name, time: src.time, tempo: src.tempo, lyrics: src.lyrics };
+      const copy = { name: src.name, time: src.time, tempo: src.tempo, key: src.key, lyrics: src.lyrics, notes: src.notes, audioUrl: src.audioUrl, scoreUrl: src.scoreUrl };
       songs.push(copy);
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
       const totalSecs = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
@@ -698,7 +811,11 @@ function renderLibrary() {
         name: (row.querySelector('.lib-name')?.value || '').trim(),
         time: formatTime(row.querySelector('.lib-time')?.value || ''),
         tempo: (row.querySelector('.lib-tempo')?.value || '').trim(),
-        lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim()
+        key: (row.querySelector('.lib-key')?.value || '').trim(),
+        lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim(),
+        notes: (row.querySelector('.lib-notes')?.value || '').trim(),
+        audioUrl: (row.querySelector('.lib-audio-url')?.value || '').trim(),
+        scoreUrl: (row.querySelector('.lib-score-url')?.value || '').trim()
       }));
       persist();
       renderLibrary();
@@ -863,7 +980,11 @@ function endTouchDragLib(e) {
     name: (row.querySelector('.lib-name')?.value || '').trim(),
     time: formatTime(row.querySelector('.lib-time')?.value || ''),
     tempo: (row.querySelector('.lib-tempo')?.value || '').trim(),
-    lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim()
+    key: (row.querySelector('.lib-key')?.value || '').trim(),
+    lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim(),
+    notes: (row.querySelector('.lib-notes')?.value || '').trim(),
+    audioUrl: (row.querySelector('.lib-audio-url')?.value || '').trim(),
+    scoreUrl: (row.querySelector('.lib-score-url')?.value || '').trim()
   }));
   persist();
   renderLibrary();
