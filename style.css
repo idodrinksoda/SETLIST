@@ -1043,6 +1043,39 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
 }
 
 /* Library audio upload row */
+.lib-audio-link-row {
+  margin-bottom: 0.5rem;
+}
+
+.lib-audio-url {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0d0d0d;
+  color: var(--fg);
+  border-radius: var(--radius);
+  border: 1px solid rgba(212, 207, 201, 0.1);
+  padding: 0.38rem 0.55rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.lib-audio-url:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.lib-audio-sep {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.4rem 0;
+  letter-spacing: 0.04em;
+}
+
+/* SoundCloud embed height */
+.song-embed--soundcloud {
+  height: 166px;
+}
+
 .lib-audio-upload-row {
   margin-top: 0.1rem;
 }

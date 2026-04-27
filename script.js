@@ -237,10 +237,45 @@ async function uploadScoreFile(file) {
   return await ref.getDownloadURL();
 }
 
+function isSoundCloud(url) {
+  return /soundcloud\.com\/[^/]+\/[^/]+/.test(url);
+}
+
+function getDropboxStreamUrl(url) {
+  // Transform Dropbox share link to directly streamable URL
+  if (url.match(/[?&]dl=\d/)) return url.replace(/([?&])dl=\d/, '$1raw=1');
+  return url + (url.includes('?') ? '&' : '?') + 'raw=1';
+}
+
 function buildPlayer(audioUrl, autoplay) {
   if (!audioUrl) return null;
+
+  // SoundCloud: use their official embeddable widget
+  if (isSoundCloud(audioUrl)) {
+    const iframe = document.createElement('iframe');
+    const params = [
+      `url=${encodeURIComponent(audioUrl)}`,
+      `color=%23d4cfc9`,
+      `auto_play=${autoplay ? 'true' : 'false'}`,
+      `hide_related=true`,
+      `show_comments=false`,
+      `show_user=false`,
+      `show_reposts=false`,
+      `show_teaser=false`,
+      `visual=false`
+    ].join('&');
+    iframe.src = `https://w.soundcloud.com/player/?${params}`;
+    iframe.allow = 'autoplay';
+    iframe.className = 'song-embed song-embed--soundcloud';
+    return iframe;
+  }
+
+  // Dropbox: convert share link to direct stream URL
+  const src = audioUrl.includes('dropbox.com') ? getDropboxStreamUrl(audioUrl) : audioUrl;
+
+  // Native audio — Firebase Storage, Dropbox direct, or any hosted audio file
   const audio = document.createElement('audio');
-  audio.src = audioUrl;
+  audio.src = src;
   audio.controls = true;
   audio.preload = 'metadata';
   audio.className = 'song-audio';
@@ -332,7 +367,7 @@ function playSetToIndex(i) {
       playSetState.timer = setTimeout(() => playSetToIndex(i + 1), dur);
     });
   } else {
-    // YouTube / Spotify iframe — advance after the song's listed duration
+    // SoundCloud iframe — can't detect 'ended' cross-origin, advance after song duration
     const dur = Math.max(parseTime(song.time) * 1000, 30000);
     playSetState.timer = setTimeout(() => playSetToIndex(i + 1), dur);
   }
@@ -662,6 +697,33 @@ function renderLibrary() {
 
     // Audio
     const { wrap: audioWrap, body: audioBody } = makeInfoSubSection('🎧', 'Audio', !!song.audioUrl);
+
+    // Link paste row (SoundCloud / Dropbox)
+    const audioLinkRow = document.createElement('div');
+    audioLinkRow.className = 'lib-audio-link-row';
+    const audioInput = document.createElement('input');
+    audioInput.type = 'url';
+    audioInput.className = 'lib-audio-url';
+    const _isFbUrl = (song.audioUrl || '').includes('firebasestorage.googleapis.com');
+    audioInput.value = _isFbUrl ? '' : (song.audioUrl || '');
+    audioInput.placeholder = _isFbUrl
+      ? '✓ File uploaded — paste a link to replace'
+      : 'Paste a SoundCloud or Dropbox link';
+    audioInput.onblur = () => {
+      const newUrl = audioInput.value.trim();
+      // Don’t wipe an uploaded file when blurring an empty field
+      const storedIsFb = (library[i].audioUrl || '').includes('firebasestorage.googleapis.com');
+      if (!newUrl && storedIsFb) return;
+      library[i].audioUrl = newUrl;
+      songs.forEach(s => { if (s.name === library[i].name) s.audioUrl = newUrl; });
+      persistField();
+    };
+    audioInput.addEventListener('keydown', e => { if (e.key === 'Enter') audioInput.blur(); });
+    audioLinkRow.appendChild(audioInput);
+
+    const audioSep = document.createElement('p');
+    audioSep.className = 'lib-audio-sep';
+    audioSep.textContent = '— or upload a file —';
     const uploadRow = document.createElement('div');
     uploadRow.className = 'lib-audio-upload-row';
     const uploadLabel = document.createElement('label');
@@ -693,7 +755,7 @@ function renderLibrary() {
     });
     uploadLabel.append(uploadText, fileInput);
     uploadRow.appendChild(uploadLabel);
-    audioBody.appendChild(uploadRow);
+    audioBody.append(audioLinkRow, audioSep, uploadRow);
 
     infoPanel.append(nameEditRow, timeEditRow, tempoRow, keyRow, lyricsWrap, notesWrap, scoreWrap, audioWrap);
 
