@@ -223,8 +223,8 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:not(.delete):hover { background: #c0bbb5; }
-button:not(.delete):active {
+button:not(.delete):not(.song-play-btn):hover { background: #c0bbb5; }
+button:not(.delete):not(.song-play-btn):active {
   transform: scale(0.97);
   filter: brightness(1.05);
 }
