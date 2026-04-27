@@ -360,11 +360,38 @@ function playSetToIndex(i) {
   wrap.appendChild(player);
 
   if (player.tagName === 'AUDIO') {
-    player.addEventListener('ended', () => playSetToIndex(i + 1));
-    player.play().catch(() => {
-      // Autoplay blocked — use song duration as fallback timer
+    // Guard prevents 'ended' event and safety timer from both advancing
+    let advanced = false;
+    const advance = () => {
+      if (advanced || !playSetState.active) return;
+      advanced = true;
+      if (playSetState.timer) { clearTimeout(playSetState.timer); playSetState.timer = null; }
+      playSetToIndex(i + 1);
+    };
+
+    player.addEventListener('ended', advance);
+
+    const armSafetyTimer = () => {
+      if (playSetState.timer) clearTimeout(playSetState.timer);
+      // Use the audio's real duration if known; otherwise fall back to listed time + generous buffer
+      const actualMs = player.duration && isFinite(player.duration) ? player.duration * 1000 : null;
+      const listedMs = Math.max(parseTime(song.time) * 1000, 5000);
+      playSetState.timer = setTimeout(advance, actualMs ? actualMs + 3000 : listedMs + 8000);
+    };
+
+    player.play().then(() => {
+      // Autoplay allowed — arm a safety timer in case 'ended' never fires
+      if (player.readyState >= 1 && isFinite(player.duration)) {
+        armSafetyTimer();
+      } else {
+        player.addEventListener('loadedmetadata', armSafetyTimer, { once: true });
+        // Belt-and-suspenders: crude fallback if metadata never arrives
+        playSetState.timer = setTimeout(advance, Math.max(parseTime(song.time) * 1000, 5000) + 15000);
+      }
+    }).catch(() => {
+      // Autoplay blocked — user must tap; fall back to listed duration
       const dur = Math.max(parseTime(song.time) * 1000, 3000);
-      playSetState.timer = setTimeout(() => playSetToIndex(i + 1), dur);
+      playSetState.timer = setTimeout(advance, dur);
     });
   } else {
     // SoundCloud iframe — can't detect 'ended' cross-origin, advance after song duration
