@@ -16,7 +16,7 @@
   <!-- Cache-bust CSS so mobile always gets latest styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css?v=8" />
   <!-- Firebase CDN SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -93,11 +93,13 @@
   <div id="setlistDropdown" class="dropdown-content"></div>
       </div>
 
-      <div class="setlist-actions">      <button id="playSetBtn">▶ Play Set</button>  <button id="printBtn">Print</button>
-  <button id="shareBtn">Share</button>
-  <button id="dupSetlistBtn">Duplicate</button>
-  <button id="clearAllBtn">Clear</button>
-  <button id="deleteSetlistBtn" class="delete-setlist-btn-action">Delete</button>
+      <div class="setlist-actions">
+        <button id="playSetBtn">&#x25B6; Play Set</button>
+        <button id="printBtn">Print</button>
+        <button id="shareBtn">Share</button>
+        <button id="dupSetlistBtn">Duplicate</button>
+        <button id="clearAllBtn">&#x1F9F9; Clear</button>
+        <button id="deleteSetlistBtn" class="delete-setlist-btn-action">&#x1F5D1;&#xFE0F; Delete</button>
       </div>
     </div>
 
@@ -112,8 +114,8 @@
       <span class="song-name"></span>
       <span class="song-time"></span>
       <span class="song-tempo"></span>
-      <button class="song-play-btn" aria-label="Play song" title="Play song">▶</button>
-      <button class="delete" aria-label="Delete song">🗑️</button>
+      <button type="button" class="song-play-btn" aria-label="Play song" title="Play song">&#x25B6;</button>
+      <button type="button" class="delete" aria-label="Delete song">&#x1F5D1;&#xFE0F;</button>
       <div class="song-player-wrap"></div>
     </li>
   </template>
