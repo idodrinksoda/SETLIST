@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="110" fill="#0a0a0a"/>
+  <!-- Setlist rows: number block + name bar -->
+  <rect x="72"  y="110" width="52" height="38" rx="9" fill="#d4cfc9"/>
+  <rect x="140" y="110" width="238" height="38" rx="9" fill="#d4cfc9" opacity="0.88"/>
+  <rect x="72"  y="176" width="52" height="38" rx="9" fill="#d4cfc9" opacity="0.65"/>
+  <rect x="140" y="176" width="195" height="38" rx="9" fill="#d4cfc9" opacity="0.60"/>
+  <rect x="72"  y="242" width="52" height="38" rx="9" fill="#d4cfc9" opacity="0.44"/>
+  <rect x="140" y="242" width="218" height="38" rx="9" fill="#d4cfc9" opacity="0.40"/>
+  <rect x="72"  y="308" width="52" height="38" rx="9" fill="#d4cfc9" opacity="0.26"/>
+  <rect x="140" y="308" width="168" height="38" rx="9" fill="#d4cfc9" opacity="0.22"/>
+  <!-- Play arrow at bottom right -->
+  <circle cx="388" cy="388" r="76" fill="#d4cfc9" opacity="0.92"/>
+  <polygon points="370,358 370,418 424,388" fill="#0a0a0a"/>
+</svg>

@@ -223,8 +223,8 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:not(.delete):hover { background: #c0bbb5; }
-button:not(.delete):active {
+button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):hover { background: #c0bbb5; }
+button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
   transform: scale(0.97);
   filter: brightness(1.05);
 }
@@ -400,16 +400,21 @@ button:not(.delete):active {
   border-top: 1px solid transparent;
   font-size: 0.9rem;
   color: var(--muted);
-  max-height: 0;
+  /* Use visibility+opacity for the open animation; avoid max-height transition
+     since the panel can be very tall and a 0→large-px ease causes perceived lag */
+  visibility: hidden;
   opacity: 0;
-  transition: max-height 0.3s ease, opacity 0.24s ease, padding-top 0.24s ease, border-color 0.24s ease;
+  max-height: 0;
+  transition: opacity 0.22s ease, padding-top 0.22s ease, border-color 0.22s ease, visibility 0s linear 0.22s;
 }
 
 .lib-info.open {
-  max-height: 420px;
+  visibility: visible;
   opacity: 1;
+  max-height: none;
   padding-top: 0.5rem;
   border-top-color: rgba(212, 207, 201, 0.08);
+  transition: opacity 0.22s ease, padding-top 0.22s ease, border-color 0.22s ease, visibility 0s linear 0s;
 }
 
 /* Highlight the item while its panel is open */
@@ -667,6 +672,7 @@ button:not(.delete):active {
 
 .song-item {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   background: linear-gradient(135deg, #141414, #0e0e0e);
@@ -700,6 +706,77 @@ button:not(.delete):active {
 }
 .song-item .drag-handle:hover { color: var(--fg); }
 .song-item.dragging .drag-handle, .song-item.touch-dragging .drag-handle { cursor: grabbing; }
+
+/* Per-song play button */
+.song-play-btn {
+  flex: 0 0 auto;
+  background: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+  border: none;
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.song-play-btn:hover {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+.song-play-btn.playing {
+  color: var(--accent);
+}
+.song-play-btn.has-audio {
+  color: rgba(212, 207, 201, 0.55);
+}
+
+/* Inline player area (expands below the song row) */
+.song-player-wrap {
+  flex: 1 0 100%;
+  display: none;
+  padding-top: 0.6rem;
+}
+.song-player-wrap.open {
+  display: block;
+}
+
+.song-audio {
+  width: 100%;
+  height: 38px;
+  border-radius: var(--radius);
+  outline: none;
+  display: block;
+}
+
+.song-embed {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius);
+  height: 315px;
+  display: block;
+}
+.song-embed--spotify {
+  height: 82px;
+}
+
+.song-no-audio {
+  margin: 0;
+  padding: 0.35rem 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Now-playing highlight during Play Set */
+.song-item.now-playing {
+  border-left-color: var(--accent);
+  background: linear-gradient(135deg, #1c1c14, #0e0e0e);
+  box-shadow: 0 0 0 1px rgba(212, 207, 201, 0.08);
+}
+.song-item.now-playing .song-name {
+  color: var(--accent);
+}
 
 .delete {
   background: none;
@@ -871,7 +948,155 @@ button:not(.delete):active {
   }
 }
 
-/* ===== Toast notification ===== */
+/* Collapsible sub-sections inside lib-info panel */
+.lib-subsection {
+  border-top: 1px solid rgba(212, 207, 201, 0.07);
+  margin-top: 0.15rem;
+}
+
+.lib-subsection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none !important;
+  border: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  padding: 0.5rem 0 0.35rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.lib-subsection-header:hover {
+  color: var(--fg);
+}
+.lib-subsection-header.has-content {
+  color: var(--accent);
+  opacity: 0.85;
+}
+.lib-subsection-header.open {
+  color: var(--fg);
+  opacity: 1;
+}
+
+.lib-subsection-arrow {
+  font-size: 0.65rem;
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.lib-subsection-body {
+  display: none;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+}
+.lib-subsection-body.open {
+  display: flex;
+}
+
+/* Textareas inside sub-sections */
+.lib-subsection-body textarea {
+  background: #0d0d0d;
+  color: var(--fg);
+  border-radius: var(--radius);
+  border: 1px solid rgba(212, 207, 201, 0.1);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  min-height: 4rem;
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+.lib-subsection-body textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* View score / tab link */
+.lib-view-score-btn {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.lib-view-score-btn:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+#playSetBtn {
+  background: none;
+  border: 1px solid rgba(212, 207, 201, 0.28);
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+#playSetBtn:hover {
+  background: var(--accent-soft) !important;
+  border-color: var(--accent);
+}
+#playSetBtn.active {
+  background: rgba(192, 81, 63, 0.15) !important;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Library audio URL row */
+.lib-audio-row input.lib-audio-url {
+  flex: 1;
+  min-width: 0;
+  background: #0d0d0d;
+  color: var(--fg);
+  border-radius: var(--radius);
+  border: 1px solid rgba(212, 207, 201, 0.1);
+  padding: 0.38rem 0.55rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.lib-audio-row input.lib-audio-url:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Library audio upload row */
+.lib-audio-upload-row {
+  margin-top: 0.1rem;
+}
+.lib-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  background: none;
+  border: 1px dashed rgba(212, 207, 201, 0.22);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 0.38rem 0.7rem;
+  transition: border-color 0.18s, color 0.18s;
+  user-select: none;
+}
+.lib-upload-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.lib-file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
 #toastBar {
   position: fixed;
   bottom: 1.75rem;
