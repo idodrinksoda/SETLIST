@@ -785,7 +785,7 @@ function renderLibrary() {
     uploadText.textContent = '⬆ Upload audio file';
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = 'audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac,.aiff,.wma';
+    fileInput.accept = 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/wave,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/aiff,audio/x-aiff,audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac,.aiff,.aif,.wma';
     fileInput.className = 'lib-file-input';
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files[0];

@@ -1,4 +1,4 @@
-const CACHE = 'setlist-v1';
+const CACHE = 'setlist-v2';
 const STATIC_ASSETS = [
   './index.html',
   './script.js',
