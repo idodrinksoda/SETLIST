@@ -1,8 +1,6 @@
-const CACHE = 'setlist-v3';
+const CACHE = 'setlist-v4';
 const STATIC_ASSETS = [
   './index.html',
-  './script.js',
-  './style.css',
   './manifest.json',
   './icons/icon.svg'
 ];

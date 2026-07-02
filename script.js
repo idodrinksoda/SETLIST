@@ -53,6 +53,9 @@ function attachRealtimeListeners() {
       library = snapshot.data().songs || [];
     }
     renderLibrary();
+  }, err => {
+    console.error('Library listener error:', err.code, err.message);
+    showToast('⚠️ Could not load library — check your connection.');
   });
 
   setlistsUnsub = db.doc(SETLISTS_DOC).onSnapshot(snapshot => {
@@ -74,12 +77,18 @@ function attachRealtimeListeners() {
       // Reuse the last selected setlist if it still exists
       targetSet = currentSetlist;
     } else {
-      // No hash and no prior valid selection: auto-select the first available setlist
-      const keys = Object.keys(allSetlists);
-      targetSet = keys.length > 0 ? keys[0] : '';
+      // Try to restore last-used setlist from localStorage, then fall back to first available
+      const lastUsed = localStorage.getItem('lastSetlist');
+      if (lastUsed && allSetlists[lastUsed]) {
+        targetSet = lastUsed;
+      } else {
+        const keys = Object.keys(allSetlists);
+        targetSet = keys.length > 0 ? keys[0] : '';
+      }
     }
 
     currentSetlist = targetSet;
+    if (currentSetlist) localStorage.setItem('lastSetlist', currentSetlist);
     songs = currentSetlist && Array.isArray(allSetlists[currentSetlist])
       ? [...allSetlists[currentSetlist]]
       : [];
@@ -88,6 +97,9 @@ function attachRealtimeListeners() {
     renderDropdown();
     updateTotal();
     if (createdFromHash) persist();
+  }, err => {
+    console.error('Setlists listener error:', err.code, err.message);
+    showToast('⚠️ Could not load setlists — check your connection.');
   });
 }
 
@@ -845,6 +857,15 @@ function renderLibrary() {
         return;
       }
       const src = library[i] || {};
+      // Duplicate guard: warn on first tap, allow on second
+      const alreadyIn = songs.some(s => s.name === src.name);
+      if (alreadyIn && addBtn.dataset.confirmDup !== 'yes') {
+        showToast(`"${src.name}" is already in this set — tap ➕ again to add anyway.`);
+        addBtn.dataset.confirmDup = 'yes';
+        setTimeout(() => { addBtn.dataset.confirmDup = ''; }, 2500);
+        return;
+      }
+      addBtn.dataset.confirmDup = '';
       const copy = { name: src.name, time: src.time, tempo: src.tempo, key: src.key, lyrics: src.lyrics, notes: src.notes, audioUrl: src.audioUrl, scoreUrl: src.scoreUrl };
       songs.push(copy);
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
@@ -1452,12 +1473,14 @@ function renderDropdown() {
     const totalSecs = setSongs.reduce((acc, s) => acc + parseTime(s.time), 0);
     const mm = Math.floor(totalSecs / 60);
     const ss = String(totalSecs % 60).padStart(2, '0');
-    const timeStr = totalSecs > 0 ? `${mm}:${ss}` : '—';
+    const count = setSongs.length;
+    const timeStr = count > 0 ? `${count} songs • ${mm}:${ss}` : 'empty';
 
     const row = document.createElement('div');
     row.className = 'dropdown-set-row' + (name === currentSetlist ? ' active-set' : '');
     row.onclick = () => {
       currentSetlist = name;
+      localStorage.setItem('lastSetlist', name);
       songs = Array.isArray(allSetlists[name]) ? [...allSetlists[name]] : [];
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
       toggleDropdown(false);
