@@ -74,8 +74,9 @@ function attachRealtimeListeners() {
       // Reuse the last selected setlist if it still exists
       targetSet = currentSetlist;
     } else {
-      // No hash and no prior valid selection: start with no active setlist
-      targetSet = '';
+      // No hash and no prior valid selection: auto-select the first available setlist
+      const keys = Object.keys(allSetlists);
+      targetSet = keys.length > 0 ? keys[0] : '';
     }
 
     currentSetlist = targetSet;
