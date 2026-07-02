@@ -1,4 +1,4 @@
-const CACHE = 'setlist-v4';
+const CACHE = 'setlist-v5';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',

@@ -20,6 +20,10 @@ const userEmail = document.getElementById('userEmail');
 const logoutBtn = document.getElementById('logoutBtn');
 const authError = document.getElementById('authError');
 
+// Per-tab scroll memory so switching tabs returns you to where you were
+let activeTab = 'library';
+const tabScroll = { library: 0, setlist: 0 };
+
 function showAppUI(show) {
   document.querySelector('.tab-header').style.display = show ? '' : 'none';
   const _lib    = document.getElementById('libraryView');
@@ -35,6 +39,9 @@ function showAppUI(show) {
     _sl.classList.add('hidden');
     if (_tabLib) { _tabLib.classList.add('active'); }
     if (_tabSl)  { _tabSl.classList.remove('active'); }
+    activeTab = 'library';
+    tabScroll.library = 0;
+    tabScroll.setlist = 0;
   } else {
     _lib.classList.add('hidden');
     _sl.classList.add('hidden');
@@ -202,20 +209,24 @@ const libraryView = document.getElementById('libraryView');
 const setlistView = document.getElementById('setlistView');
 
 tabLibrary.onclick = () => {
+  if (activeTab !== 'library') { tabScroll.setlist = window.scrollY; activeTab = 'library'; }
   tabLibrary.classList.add('active');
   tabSetlist.classList.remove('active');
   libraryView.classList.remove('hidden');
   setlistView.classList.add('hidden');
   // Safety: ensure only libraryView is visible
   if (!libraryView.classList.contains('hidden')) setlistView.classList.add('hidden');
+  requestAnimationFrame(() => window.scrollTo(0, tabScroll.library));
 };
 tabSetlist.onclick = () => {
+  if (activeTab !== 'setlist') { tabScroll.library = window.scrollY; activeTab = 'setlist'; }
   tabSetlist.classList.add('active');
   tabLibrary.classList.remove('active');
   libraryView.classList.add('hidden');
   setlistView.classList.remove('hidden');
   // Safety: ensure only setlistView is visible
   if (!setlistView.classList.contains('hidden')) libraryView.classList.add('hidden');
+  requestAnimationFrame(() => window.scrollTo(0, tabScroll.setlist));
 };
 
 /* ===== Elements ===== */
@@ -571,6 +582,32 @@ function updateTotal() {
   totalTimeEl.textContent = `Total Time: ${m} min ${s} s`;
 }
 
+/* ===== Library search / filter ===== */
+// Filtering hides rows instead of skipping them so drag-reorder (which
+// rebuilds the library array from ALL list children) never loses hidden songs.
+const librarySearch = document.getElementById('librarySearch');
+const libraryNoMatch = document.getElementById('libraryNoMatch');
+
+function applyLibraryFilter() {
+  const q = librarySearch ? librarySearch.value.trim().toLowerCase() : '';
+  let visible = 0;
+  [...libraryList.children].forEach(li => {
+    const match = !q || (li.dataset.searchText || '').includes(q);
+    li.classList.toggle('filtered-out', !match);
+    if (match) visible++;
+  });
+  if (libraryNoMatch) {
+    libraryNoMatch.classList.toggle('hidden', !(q && visible === 0 && library.length > 0));
+  }
+}
+
+if (librarySearch) {
+  librarySearch.addEventListener('input', applyLibraryFilter);
+  librarySearch.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { librarySearch.value = ''; applyLibraryFilter(); librarySearch.blur(); }
+  });
+}
+
 /* ===== Library (editable + add-to-setlist) ===== */
 
 // Creates a collapsible sub-section inside the lib-info panel
@@ -605,6 +642,7 @@ function renderLibrary() {
     const li = document.createElement('li');
     li.className = 'lib-item';
     li.setAttribute('draggable', 'true');
+    li.dataset.searchText = [song.name, song.tempo, song.key].filter(Boolean).join(' ').toLowerCase();
     // Main row: drag handle, name, time, info button, controls
     const mainRow = document.createElement('div');
     mainRow.className = 'lib-main';
@@ -943,6 +981,7 @@ function renderLibrary() {
       }, 380);
     });
   });
+  applyLibraryFilter();
 }
 
 // ===== Library container drag logic =====
@@ -1467,8 +1506,10 @@ setlist.addEventListener('keydown', (e) => {
 function renderDropdown() {
   setlistDropdown.innerHTML = '';
 
-  // Existing setlists: name + total time only
-  Object.keys(allSetlists).forEach(name => {
+  // Existing setlists: name + total time only, sorted alphabetically
+  const sortedNames = Object.keys(allSetlists)
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
+  sortedNames.forEach(name => {
     const setSongs = Array.isArray(allSetlists[name]) ? allSetlists[name] : [];
     const totalSecs = setSongs.reduce((acc, s) => acc + parseTime(s.time), 0);
     const mm = Math.floor(totalSecs / 60);
