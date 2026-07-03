@@ -297,6 +297,17 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
   display: none;
 }
 
+/* Highlight pulse on a song just added/updated via the add panel */
+.lib-item.flash-added {
+  animation: flashAdded 1.6s ease;
+}
+
+@keyframes flashAdded {
+  0%   { box-shadow: 0 0 0 2px var(--accent), 0 0 18px 2px var(--accent-soft); }
+  60%  { box-shadow: 0 0 0 2px var(--accent), 0 0 18px 2px var(--accent-soft); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
 #libraryNoMatch {
   text-align: center;
   opacity: 0.55;

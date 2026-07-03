@@ -1163,7 +1163,20 @@ function doAddSong() {
   // Close panel and show confirmation
   addSongPanel.classList.remove('open');
   saveToLibrary.classList.remove('active');
-  showToast(`"${n}" added to library`);
+  showToast(existingIndex !== -1 ? `"${n}" updated in library` : `"${n}" added to library`);
+  // Make sure the song is actually visible: an active search filter could hide
+  // it, and new songs land at the bottom of the list, off-screen on phones.
+  if (librarySearch && librarySearch.value) {
+    librarySearch.value = '';
+    applyLibraryFilter();
+  }
+  const rowIdx = existingIndex !== -1 ? existingIndex : library.length - 1;
+  const row = libraryList.children[rowIdx];
+  if (row) {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('flash-added');
+    setTimeout(() => row.classList.remove('flash-added'), 1600);
+  }
 }
 
 addSongConfirm.onclick = doAddSong;
