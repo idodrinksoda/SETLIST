@@ -239,8 +239,8 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):hover { background: #c0bbb5; }
-button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
+button:not(.delete):not(.lib-subsection-header):hover { background: #c0bbb5; }
+button:not(.delete):not(.lib-subsection-header):active {
   transform: scale(0.97);
   filter: brightness(1.05);
 }
@@ -450,6 +450,35 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
   border: none;
   cursor: pointer;
   padding: 0.15rem 0.35rem;
+}
+
+/* Row action buttons (ℹ️ / ➕): 44px touch targets with a hard pressed state */
+#libraryList .lib-controls button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 207, 201, 0.16);
+  transition: background 0.12s ease, transform 0.12s ease, border-color 0.12s ease;
+}
+#libraryList .lib-controls button:active {
+  background: var(--accent);
+  color: #0a0a0a;
+  border-color: var(--accent);
+  transform: scale(0.85);
+  transition-duration: 0.05s;
+}
+/* Success burst after a song is added to the setlist */
+#libraryList .lib-controls button.added-pop {
+  animation: addPop 0.45s ease;
+}
+@keyframes addPop {
+  0%   { transform: scale(0.85); box-shadow: 0 0 0 0 rgba(212, 207, 201, 0.55); }
+  45%  { transform: scale(1.18); }
+  100% { transform: scale(1); box-shadow: 0 0 0 16px rgba(212, 207, 201, 0); }
 }
 
 /* Library edit panel — revealed on row click */
@@ -769,66 +798,6 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
 .song-item .drag-handle:hover { color: var(--fg); }
 .song-item.dragging .drag-handle, .song-item.touch-dragging .drag-handle { cursor: grabbing; }
 
-/* Per-song play button */
-.song-play-btn {
-  flex: 0 0 auto;
-  background: none;
-  color: var(--muted);
-  font-size: 0.78rem;
-  border: none;
-  cursor: pointer;
-  padding: 0.15rem 0.4rem;
-  border-radius: 999px;
-  transition: color 0.15s, background 0.15s;
-  line-height: 1;
-}
-.song-play-btn:hover {
-  color: var(--accent) !important;
-  background: var(--accent-soft) !important;
-}
-.song-play-btn.playing {
-  color: var(--accent);
-}
-.song-play-btn.has-audio {
-  color: rgba(212, 207, 201, 0.55);
-}
-
-/* Inline player area (expands below the song row) */
-.song-player-wrap {
-  flex: 1 0 100%;
-  display: none;
-  padding-top: 0.6rem;
-}
-.song-player-wrap.open {
-  display: block;
-}
-
-.song-audio {
-  width: 100%;
-  height: 38px;
-  border-radius: var(--radius);
-  outline: none;
-  display: block;
-}
-
-.song-no-audio {
-  margin: 0;
-  padding: 0.35rem 0;
-  font-size: 0.82rem;
-  color: var(--muted);
-  font-style: italic;
-}
-
-/* Now-playing highlight during Play Set */
-.song-item.now-playing {
-  border-left-color: var(--accent);
-  background: linear-gradient(135deg, #1c1c14, #0e0e0e);
-  box-shadow: 0 0 0 1px rgba(212, 207, 201, 0.08);
-}
-.song-item.now-playing .song-name {
-  color: var(--accent);
-}
-
 .delete {
   background: none;
   color: var(--muted);
@@ -932,7 +901,6 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
 
   #libraryList li .lib-controls button {
     font-size: 1rem;
-    padding: 0.2rem 0.4rem;
   }
 
   .setlist-controls {
@@ -1087,57 +1055,6 @@ button:not(.delete):not(.song-play-btn):not(.lib-subsection-header):active {
   opacity: 1;
   text-decoration: underline;
 }
-#playSetBtn {
-  background: none;
-  border: 1px solid rgba(212, 207, 201, 0.28);
-  color: var(--accent);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-#playSetBtn:hover {
-  background: var(--accent-soft) !important;
-  border-color: var(--accent);
-}
-#playSetBtn.active {
-  background: rgba(192, 81, 63, 0.15) !important;
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-/* Library audio upload row */
-.lib-audio-link-row {
-  margin-bottom: 0.5rem;
-}
-
-.lib-audio-url {
-  width: 100%;
-  box-sizing: border-box;
-  background: #0d0d0d;
-  color: var(--fg);
-  border-radius: var(--radius);
-  border: 1px solid rgba(212, 207, 201, 0.1);
-  padding: 0.38rem 0.55rem;
-  font-size: 0.9rem;
-  font-family: inherit;
-}
-.lib-audio-url:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
-.lib-audio-sep {
-  text-align: center;
-  font-size: 0.75rem;
-  color: var(--muted);
-  margin: 0.4rem 0;
-  letter-spacing: 0.04em;
-}
-
-/* SoundCloud embed height */
-.song-embed--soundcloud {
-  height: 166px;
-}
-
 .lib-audio-upload-row {
   margin-top: 0.1rem;
 }

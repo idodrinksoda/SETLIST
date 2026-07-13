@@ -255,9 +255,6 @@ let allSetlists = {};
 let currentSetlist = '';
 let songs = [];
 
-/* ===== Play Set state ===== */
-let playSetState = { active: false, index: -1, timer: null };
-
 function persist() {
   // Only persist a named setlist; when no setlist is selected,
   // we still persist the library but leave allSetlists as-is.
@@ -267,17 +264,6 @@ function persist() {
   persistFirestore();
 }
 
-/* ===== Audio helpers ===== */
-
-async function uploadAudioFile(file) {
-  if (!auth.currentUser) throw new Error('Not signed in');
-  const safeName = file.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
-  const path = `bandData/audio/${Date.now()}_${safeName}`;
-  const ref = storage.ref(path);
-  await ref.put(file);
-  return await ref.getDownloadURL();
-}
-
 async function uploadScoreFile(file) {
   if (!auth.currentUser) throw new Error('Not signed in');
   const safeName = file.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
@@ -285,178 +271,6 @@ async function uploadScoreFile(file) {
   const ref = storage.ref(path);
   await ref.put(file);
   return await ref.getDownloadURL();
-}
-
-function isSoundCloud(url) {
-  return /soundcloud\.com\/[^/]+\/[^/]+/.test(url);
-}
-
-function getDropboxStreamUrl(url) {
-  // Transform Dropbox share link to directly streamable URL
-  if (url.match(/[?&]dl=\d/)) return url.replace(/([?&])dl=\d/, '$1raw=1');
-  return url + (url.includes('?') ? '&' : '?') + 'raw=1';
-}
-
-function buildPlayer(audioUrl, autoplay) {
-  if (!audioUrl) return null;
-
-  // SoundCloud: use their official embeddable widget
-  if (isSoundCloud(audioUrl)) {
-    const iframe = document.createElement('iframe');
-    const params = [
-      `url=${encodeURIComponent(audioUrl)}`,
-      `color=%23d4cfc9`,
-      `auto_play=${autoplay ? 'true' : 'false'}`,
-      `hide_related=true`,
-      `show_comments=false`,
-      `show_user=false`,
-      `show_reposts=false`,
-      `show_teaser=false`,
-      `visual=false`
-    ].join('&');
-    iframe.src = `https://w.soundcloud.com/player/?${params}`;
-    iframe.allow = 'autoplay';
-    iframe.className = 'song-embed song-embed--soundcloud';
-    return iframe;
-  }
-
-  // Dropbox: convert share link to direct stream URL
-  const src = audioUrl.includes('dropbox.com') ? getDropboxStreamUrl(audioUrl) : audioUrl;
-
-  // Native audio — Firebase Storage, Dropbox direct, or any hosted audio file
-  const audio = document.createElement('audio');
-  audio.src = src;
-  audio.controls = true;
-  audio.preload = 'metadata';
-  audio.className = 'song-audio';
-  if (autoplay) audio.autoplay = true;
-  return audio;
-}
-
-/* ===== Play Set ===== */
-
-function updatePlaySetUI() {
-  const btn = document.getElementById('playSetBtn');
-  if (!btn) return;
-  if (playSetState.active) {
-    btn.textContent = '⏹ Stop Set';
-    btn.classList.add('active');
-  } else {
-    btn.textContent = '▶ Play Set';
-    btn.classList.remove('active');
-  }
-}
-
-function stopPlaySet(updateUI = true) {
-  if (playSetState.timer) { clearTimeout(playSetState.timer); playSetState.timer = null; }
-  document.querySelectorAll('#setlist .song-player-wrap.open').forEach(w => {
-    w.innerHTML = ''; w.classList.remove('open');
-  });
-  document.querySelectorAll('#setlist .song-play-btn.playing').forEach(b => {
-    b.textContent = '▶'; b.classList.remove('playing');
-  });
-  document.querySelectorAll('#setlist .song-item.now-playing').forEach(el => el.classList.remove('now-playing'));
-  playSetState.active = false;
-  playSetState.index = -1;
-  if (updateUI) updatePlaySetUI();
-}
-
-function playSetToIndex(i) {
-  if (!playSetState.active) return;
-  if (i >= songs.length) {
-    stopPlaySet();
-    showToast('✓ Set complete!');
-    return;
-  }
-
-  playSetState.index = i;
-  const song = songs[i];
-  const items = [...document.querySelectorAll('#setlist .song-item')];
-
-  // Highlight current song, close others
-  items.forEach((el, idx) => {
-    el.classList.toggle('now-playing', idx === i);
-    const btn = el.querySelector('.song-play-btn');
-    if (btn) { btn.textContent = idx === i ? '⏸' : '▶'; btn.classList.toggle('playing', idx === i); }
-    const wrap = el.querySelector('.song-player-wrap');
-    if (wrap && idx !== i) { wrap.innerHTML = ''; wrap.classList.remove('open'); }
-  });
-
-  const item = items[i];
-  if (!item) return;
-  item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-  const wrap = item.querySelector('.song-player-wrap');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-  wrap.classList.add('open');
-
-  if (!song.audioUrl) {
-    const msg = document.createElement('p');
-    msg.className = 'song-no-audio';
-    msg.textContent = 'No audio source — advancing after song duration…';
-    wrap.appendChild(msg);
-    const dur = Math.max(parseTime(song.time) * 1000, 3000);
-    playSetState.timer = setTimeout(() => playSetToIndex(i + 1), dur);
-    return;
-  }
-
-  const player = buildPlayer(song.audioUrl, true);
-  if (!player) {
-    playSetState.timer = setTimeout(() => playSetToIndex(i + 1), Math.max(parseTime(song.time) * 1000, 3000));
-    return;
-  }
-
-  wrap.appendChild(player);
-
-  if (player.tagName === 'AUDIO') {
-    // Guard prevents 'ended' event and safety timer from both advancing
-    let advanced = false;
-    const advance = () => {
-      if (advanced || !playSetState.active) return;
-      advanced = true;
-      if (playSetState.timer) { clearTimeout(playSetState.timer); playSetState.timer = null; }
-      playSetToIndex(i + 1);
-    };
-
-    player.addEventListener('ended', advance);
-
-    const armSafetyTimer = () => {
-      if (playSetState.timer) clearTimeout(playSetState.timer);
-      // Use the audio's real duration if known; otherwise fall back to listed time + generous buffer
-      const actualMs = player.duration && isFinite(player.duration) ? player.duration * 1000 : null;
-      const listedMs = Math.max(parseTime(song.time) * 1000, 5000);
-      playSetState.timer = setTimeout(advance, actualMs ? actualMs + 3000 : listedMs + 8000);
-    };
-
-    player.play().then(() => {
-      // Autoplay allowed — arm a safety timer in case 'ended' never fires
-      if (player.readyState >= 1 && isFinite(player.duration)) {
-        armSafetyTimer();
-      } else {
-        player.addEventListener('loadedmetadata', armSafetyTimer, { once: true });
-        // Belt-and-suspenders: crude fallback if metadata never arrives
-        playSetState.timer = setTimeout(advance, Math.max(parseTime(song.time) * 1000, 5000) + 15000);
-      }
-    }).catch(() => {
-      // Autoplay blocked — user must tap; fall back to listed duration
-      const dur = Math.max(parseTime(song.time) * 1000, 3000);
-      playSetState.timer = setTimeout(advance, dur);
-    });
-  } else {
-    // SoundCloud iframe — can't detect 'ended' cross-origin, advance after song duration
-    const dur = Math.max(parseTime(song.time) * 1000, 30000);
-    playSetState.timer = setTimeout(() => playSetToIndex(i + 1), dur);
-  }
-}
-
-function startPlaySet() {
-  if (!songs.length) { showToast('No songs in the setlist.'); return; }
-  if (!currentSetlist) { showToast('No setlist selected.'); return; }
-  stopPlaySet(false);
-  playSetState.active = true;
-  updatePlaySetUI();
-  playSetToIndex(0);
 }
 
 // Debounced persist for inline field edits — avoids a Firestore write per keystroke
@@ -748,7 +562,7 @@ function renderLibrary() {
     // Score / Tab
     const { wrap: scoreWrap, body: scoreBody } = makeInfoSubSection('🎼', 'Score / Tab', !!song.scoreUrl);
     const scoreUrlRow = document.createElement('div');
-    scoreUrlRow.className = 'lib-info-row lib-audio-row';
+    scoreUrlRow.className = 'lib-info-row';
     const scoreUrlLabel = document.createElement('span');
     scoreUrlLabel.className = 'lib-info-label';
     scoreUrlLabel.textContent = 'Link';
@@ -799,69 +613,7 @@ function renderLibrary() {
       scoreBody.appendChild(viewScoreLink);
     }
 
-    // Audio
-    const { wrap: audioWrap, body: audioBody } = makeInfoSubSection('🎧', 'Audio', !!song.audioUrl);
-
-    // Link paste row (SoundCloud / Dropbox)
-    const audioLinkRow = document.createElement('div');
-    audioLinkRow.className = 'lib-audio-link-row';
-    const audioInput = document.createElement('input');
-    audioInput.type = 'url';
-    audioInput.className = 'lib-audio-url';
-    const _isFbUrl = (song.audioUrl || '').includes('firebasestorage.googleapis.com');
-    audioInput.value = _isFbUrl ? '' : (song.audioUrl || '');
-    audioInput.placeholder = _isFbUrl
-      ? '✓ File uploaded — paste a link to replace'
-      : 'Paste a SoundCloud or Dropbox link';
-    audioInput.onblur = () => {
-      const newUrl = audioInput.value.trim();
-      // Don’t wipe an uploaded file when blurring an empty field
-      const storedIsFb = (library[i].audioUrl || '').includes('firebasestorage.googleapis.com');
-      if (!newUrl && storedIsFb) return;
-      library[i].audioUrl = newUrl;
-      songs.forEach(s => { if (s.name === library[i].name) s.audioUrl = newUrl; });
-      persistField();
-    };
-    audioInput.addEventListener('keydown', e => { if (e.key === 'Enter') audioInput.blur(); });
-    audioLinkRow.appendChild(audioInput);
-
-    const audioSep = document.createElement('p');
-    audioSep.className = 'lib-audio-sep';
-    audioSep.textContent = '— or upload a file —';
-    const uploadRow = document.createElement('div');
-    uploadRow.className = 'lib-audio-upload-row';
-    const uploadLabel = document.createElement('label');
-    uploadLabel.className = 'lib-upload-btn';
-    const uploadText = document.createElement('span');
-    uploadText.textContent = '⬆ Upload audio file';
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/wave,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/aiff,audio/x-aiff,audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac,.aiff,.aif,.wma';
-    fileInput.className = 'lib-file-input';
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      uploadText.textContent = '⏳ Uploading…';
-      try {
-        const url = await uploadAudioFile(file);
-        library[i].audioUrl = url;
-        // Sync to any setlist copies of this song
-        songs.forEach(s => { if (s.name === library[i].name) s.audioUrl = url; });
-        persist();
-        infoBtn.classList.add('has-notes');
-        showToast(`"${file.name}" uploaded`);
-        uploadText.textContent = '✓ Uploaded';
-        setTimeout(() => { uploadText.textContent = '⬆ Upload audio file'; }, 2500);
-      } catch (err) {
-        showToast('Upload failed: ' + (err && err.message ? err.message : 'unknown error'));
-        uploadText.textContent = '⬆ Upload audio file';
-      }
-    });
-    uploadLabel.append(uploadText, fileInput);
-    uploadRow.appendChild(uploadLabel);
-    audioBody.append(audioLinkRow, audioSep, uploadRow);
-
-    infoPanel.append(nameEditRow, timeEditRow, tempoRow, keyRow, lyricsWrap, notesWrap, scoreWrap, audioWrap);
+    infoPanel.append(nameEditRow, timeEditRow, tempoRow, keyRow, lyricsWrap, notesWrap, scoreWrap);
 
     const delBtn = document.createElement('button');
     delBtn.textContent = '🗑️ Delete from library';
@@ -875,7 +627,7 @@ function renderLibrary() {
     // Info toggle button
     const infoBtn = document.createElement('button');
     infoBtn.className = 'lib-info-toggle';
-    if (song.lyrics || song.notes || song.key || song.audioUrl || song.scoreUrl || song.tempo) infoBtn.classList.add('has-notes');
+    if (song.lyrics || song.notes || song.key || song.scoreUrl || song.tempo) infoBtn.classList.add('has-notes');
     infoBtn.textContent = 'ℹ️';
     infoBtn.title = 'Edit song details';
     infoBtn.onclick = () => {
@@ -904,9 +656,16 @@ function renderLibrary() {
         return;
       }
       addBtn.dataset.confirmDup = '';
-      const copy = { name: src.name, time: src.time, tempo: src.tempo, key: src.key, lyrics: src.lyrics, notes: src.notes, audioUrl: src.audioUrl, scoreUrl: src.scoreUrl };
+      // Spread copies only the fields the song actually has — explicitly listing
+      // fields here created undefined values, which Firestore rejects (write threw,
+      // add was silently lost).
+      const copy = { ...src };
       songs.push(copy);
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
+      // Success burst on the button itself (forced reflow restarts it on rapid re-taps)
+      addBtn.classList.remove('added-pop');
+      void addBtn.offsetWidth;
+      addBtn.classList.add('added-pop');
       const totalSecs = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
       const mm = Math.floor(totalSecs / 60);
       const ss = String(totalSecs % 60).padStart(2, '0');
@@ -945,8 +704,7 @@ function renderLibrary() {
         key: (row.querySelector('.lib-key')?.value || '').trim(),
         lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim(),
         notes: (row.querySelector('.lib-notes')?.value || '').trim(),
-        audioUrl: (row.querySelector('.lib-audio-url')?.value || '').trim(),
-        scoreUrl: (row.querySelector('.lib-score-url')?.value || '').trim()
+            scoreUrl: (row.querySelector('.lib-score-url')?.value || '').trim()
       }));
       persist();
       renderLibrary();
@@ -1115,7 +873,6 @@ function endTouchDragLib(e) {
     key: (row.querySelector('.lib-key')?.value || '').trim(),
     lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim(),
     notes: (row.querySelector('.lib-notes')?.value || '').trim(),
-    audioUrl: (row.querySelector('.lib-audio-url')?.value || '').trim(),
     scoreUrl: (row.querySelector('.lib-score-url')?.value || '').trim()
   }));
   persist();
@@ -1192,9 +949,6 @@ addSongConfirm.onclick = doAddSong;
 
 /* ===== Setlist (read-only + draggable) ===== */
 function renderSetlist() {
-  // Stop any active play-set session before rebuilding the DOM
-  if (playSetState.active) stopPlaySet(true);
-
   setlist.innerHTML = '';
   songs.forEach((song, i) => {
     const item = songTemplate.content.cloneNode(true).children[0];
@@ -1211,44 +965,6 @@ function renderSetlist() {
       songs.splice(i, 1);
       persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
     };
-
-    // Per-song play button
-    const playBtn  = item.querySelector('.song-play-btn');
-    const playerWrap = item.querySelector('.song-player-wrap');
-    if (playBtn) {
-      if (song.audioUrl) playBtn.classList.add('has-audio');
-      playBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (playSetState.active) stopPlaySet();
-        const isOpen = playerWrap.classList.contains('open');
-        if (isOpen) {
-          playerWrap.innerHTML = ''; playerWrap.classList.remove('open');
-          playBtn.textContent = '▶'; playBtn.classList.remove('playing');
-          return;
-        }
-        // Close any other open inline players
-        document.querySelectorAll('#setlist .song-player-wrap.open').forEach(w => { w.innerHTML = ''; w.classList.remove('open'); });
-        document.querySelectorAll('#setlist .song-play-btn.playing').forEach(b => { b.textContent = '▶'; b.classList.remove('playing'); });
-        playerWrap.classList.add('open');
-        // Always look up the freshest audioUrl: check library first, fall back to setlist copy
-        const libMatch = library.find(l => l.name === song.name);
-        const audioUrl = (libMatch && libMatch.audioUrl) || song.audioUrl || '';
-        if (audioUrl) {
-          // Keep setlist copy in sync
-          song.audioUrl = audioUrl;
-          playBtn.textContent = '⏸'; playBtn.classList.add('playing');
-          const player = buildPlayer(audioUrl, true);
-          if (player) {
-            playerWrap.appendChild(player);
-            if (player.tagName === 'AUDIO') player.play().catch(() => {});
-          } else {
-            playerWrap.innerHTML = '<p class="song-no-audio">Unable to embed this URL.</p>';
-          }
-        } else {
-          playerWrap.innerHTML = '<p class="song-no-audio">No audio source. Add one in the Library tab.</p>';
-        }
-      };
-    }
 
     // drag handlers
     item.addEventListener('dragstart', (e) => {
@@ -1865,18 +1581,9 @@ shareBtn.onclick = async () => {
 
 /* ===== Init ===== */
 
-// Play Set button
-const playSetBtn = document.getElementById('playSetBtn');
-if (playSetBtn) {
-  playSetBtn.onclick = () => {
-    if (playSetState.active) { stopPlaySet(); } else { startPlaySet(); }
-  };
-}
-
 renderLibrary();
 renderSetlist();
 renderDropdown();
 updateTotal();
 updateSetlistTitle();
 setupSetlistNameEditing();
-updatePlaySetUI();

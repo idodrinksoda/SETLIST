@@ -16,7 +16,7 @@
   <!-- Cache-bust CSS so mobile always gets latest styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=18" />
+  <link rel="stylesheet" href="style.css?v=21" />
   <!-- Firebase CDN SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -97,7 +97,6 @@
       </div>
 
       <div class="setlist-actions">
-        <button id="playSetBtn">&#x25B6; Play Set</button>
         <button id="printBtn">Print</button>
         <button id="shareBtn">Share</button>
         <button id="dupSetlistBtn">Duplicate</button>
@@ -117,14 +116,12 @@
       <span class="song-name"></span>
       <span class="song-time"></span>
       <span class="song-tempo"></span>
-      <button type="button" class="song-play-btn" aria-label="Play song" title="Play song">&#x25B6;</button>
       <button type="button" class="delete" aria-label="Delete song">&#x1F5D1;&#xFE0F;</button>
-      <div class="song-player-wrap"></div>
     </li>
   </template>
 
   <!-- Cache-bust JS so mobile always gets latest behavior -->
-  <script src="script.js?v=18"></script>
+  <script src="script.js?v=21"></script>
 
   <!-- Register service worker for PWA / offline support -->
   <script>
