@@ -3,8 +3,8 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
 // Enable offline persistence (best-effort). Ignore if unsupported or in multi-tab conflict.
-try { firebase.firestore().enablePersistence({ synchronizeTabs: true }); }
-catch (e) { console.warn('Firestore persistence not enabled:', e && e.code ? e.code : e); }
+db.enablePersistence({ synchronizeTabs: true })
+  .catch(e => console.warn('Firestore persistence not enabled:', e && e.code ? e.code : e));
 
 const LIBRARY_DOC = 'bandData/library';
 const SETLISTS_DOC = 'bandData/setlists';
@@ -52,9 +52,16 @@ function attachRealtimeListeners() {
   if (libraryUnsub) libraryUnsub();
   if (setlistsUnsub) setlistsUnsub();
 
+  let libraryLoaded = false;
   libraryUnsub = db.doc(LIBRARY_DOC).onSnapshot(snapshot => {
+    // Skip echoes of our own writes: local state and DOM are already up to date,
+    // and re-rendering here closes open edit panels / drops input focus.
+    // The first snapshot always renders (it may carry pending offline writes).
+    if (libraryLoaded && snapshot.metadata.hasPendingWrites) return;
+    libraryLoaded = true;
     if (!snapshot.exists) {
-      db.doc(LIBRARY_DOC).set({ songs: [] });
+      db.doc(LIBRARY_DOC).set({ songs: [] })
+        .catch(err => console.error('Library doc init failed:', err));
       library = [];
     } else {
       library = snapshot.data().songs || [];
@@ -65,32 +72,43 @@ function attachRealtimeListeners() {
     showToast('⚠️ Could not load library — check your connection.');
   });
 
+  let setlistsLoaded = false;
   setlistsUnsub = db.doc(SETLISTS_DOC).onSnapshot(snapshot => {
+    // Skip echoes of our own writes (see library listener)
+    if (setlistsLoaded && snapshot.metadata.hasPendingWrites) return;
+    setlistsLoaded = true;
     if (!snapshot.exists) {
-      db.doc(SETLISTS_DOC).set({ allSetlists: {} });
+      db.doc(SETLISTS_DOC).set({ allSetlists: {} })
+        .catch(err => console.error('Setlists doc init failed:', err));
       allSetlists = {};
     } else {
       allSetlists = snapshot.data().allSetlists || {};
     }
-    // Honor URL hash if present (create empty set if it doesn't exist yet)
+    // Honor URL hash if it names an existing setlist; ignore stale/typo'd links
     const hashName = decodeURIComponent((window.location.hash || '').slice(1));
-    let createdFromHash = false;
     let targetSet = '';
 
-    if (hashName) {
-      if (!allSetlists[hashName]) { allSetlists[hashName] = []; createdFromHash = true; }
+    if (hashName && allSetlists[hashName]) {
       targetSet = hashName;
-    } else if (currentSetlist && allSetlists[currentSetlist]) {
-      // Reuse the last selected setlist if it still exists
-      targetSet = currentSetlist;
-    } else {
-      // Try to restore last-used setlist from localStorage, then fall back to first available
-      const lastUsed = localStorage.getItem('lastSetlist');
-      if (lastUsed && allSetlists[lastUsed]) {
-        targetSet = lastUsed;
+    } else if (hashName) {
+      showToast(`Setlist "${hashName}" not found.`);
+      try { window.history.replaceState(null, '', window.location.pathname); }
+      catch { window.location.hash = ''; }
+    }
+
+    if (!targetSet) {
+      if (currentSetlist && allSetlists[currentSetlist]) {
+        // Reuse the last selected setlist if it still exists
+        targetSet = currentSetlist;
       } else {
-        const keys = Object.keys(allSetlists);
-        targetSet = keys.length > 0 ? keys[0] : '';
+        // Try to restore last-used setlist from localStorage, then fall back to first available
+        const lastUsed = localStorage.getItem('lastSetlist');
+        if (lastUsed && allSetlists[lastUsed]) {
+          targetSet = lastUsed;
+        } else {
+          const keys = Object.keys(allSetlists);
+          targetSet = keys.length > 0 ? keys[0] : '';
+        }
       }
     }
 
@@ -103,20 +121,32 @@ function attachRealtimeListeners() {
     renderSetlist();
     renderDropdown();
     updateTotal();
-    if (createdFromHash) persist();
   }, err => {
     console.error('Setlists listener error:', err.code, err.message);
     showToast('⚠️ Could not load setlists — check your connection.');
   });
 }
 
-function persistFirestore() {
+function showSaveError(err) {
+  console.error('Save failed:', err);
+  showToast('⚠️ Could not save — ' + (err && err.code ? err.code : 'check your connection.'));
+}
+
+// Save the library doc. The try/catch matters: invalid data (e.g. undefined
+// field values) makes set() throw synchronously, bypassing .catch().
+function persistLibrary() {
   if (!auth.currentUser) return;
-  db.doc(LIBRARY_DOC).set({ songs: library }, { merge: true })
-    .catch(() => showToast('⚠️ Could not save — check your connection.'));
-  // Replace the entire allSetlists map so deleted setlists do not reappear
-  db.doc(SETLISTS_DOC).set({ allSetlists }, { merge: false })
-    .catch(() => showToast('⚠️ Could not save — check your connection.'));
+  try {
+    db.doc(LIBRARY_DOC).set({ songs: library }, { merge: true }).catch(showSaveError);
+  } catch (err) { showSaveError(err); }
+}
+
+// Save the setlists doc, replacing the entire map so deleted setlists do not reappear.
+function persistSetlists() {
+  if (!auth.currentUser) return;
+  try {
+    db.doc(SETLISTS_DOC).set({ allSetlists }, { merge: false }).catch(showSaveError);
+  } catch (err) { showSaveError(err); }
 }
 
 auth.onAuthStateChanged(user => {
@@ -187,7 +217,7 @@ logoutBtn.addEventListener('click', () => {
 });
 
 /* ===== Toast notifications ===== */
-function showToast(msg, duration = 2400) {
+function showToast(msg, duration = 2400, action = null) {
   let el = document.getElementById('toastBar');
   if (!el) {
     el = document.createElement('div');
@@ -195,6 +225,20 @@ function showToast(msg, duration = 2400) {
     document.body.appendChild(el);
   }
   el.textContent = msg;
+  if (action) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action';
+    btn.textContent = action.label;
+    btn.onclick = () => {
+      el.classList.remove('visible');
+      clearTimeout(el._timer);
+      action.onClick();
+    };
+    el.appendChild(btn);
+    el.classList.add('has-action');
+  } else {
+    el.classList.remove('has-action');
+  }
   el.classList.add('visible');
   clearTimeout(el._timer);
   el._timer = setTimeout(() => el.classList.remove('visible'), duration);
@@ -255,13 +299,12 @@ let allSetlists = {};
 let currentSetlist = '';
 let songs = [];
 
+// Persist the current setlist state (setlists doc only)
 function persist() {
-  // Only persist a named setlist; when no setlist is selected,
-  // we still persist the library but leave allSetlists as-is.
   if (currentSetlist) {
     allSetlists[currentSetlist] = songs;
   }
-  persistFirestore();
+  persistSetlists();
 }
 
 async function uploadScoreFile(file) {
@@ -273,11 +316,11 @@ async function uploadScoreFile(file) {
   return await ref.getDownloadURL();
 }
 
-// Debounced persist for inline field edits — avoids a Firestore write per keystroke
+// Debounced library persist for inline field edits — avoids a Firestore write per keystroke
 let _persistFieldTimer = null;
 function persistField() {
   clearTimeout(_persistFieldTimer);
-  _persistFieldTimer = setTimeout(persist, 800);
+  _persistFieldTimer = setTimeout(persistLibrary, 800);
 }
 
 function updateSetlistTitle() {
@@ -398,7 +441,7 @@ function updateTotal() {
 
 /* ===== Library search / filter ===== */
 // Filtering hides rows instead of skipping them so drag-reorder (which
-// rebuilds the library array from ALL list children) never loses hidden songs.
+// maps ALL list children back to library indices) never loses hidden songs.
 const librarySearch = document.getElementById('librarySearch');
 const libraryNoMatch = document.getElementById('libraryNoMatch');
 
@@ -456,6 +499,7 @@ function renderLibrary() {
     const li = document.createElement('li');
     li.className = 'lib-item';
     li.setAttribute('draggable', 'true');
+    li.dataset.origIndex = i;
     li.dataset.searchText = [song.name, song.tempo, song.key].filter(Boolean).join(' ').toLowerCase();
     // Main row: drag handle, name, time, info button, controls
     const mainRow = document.createElement('div');
@@ -574,7 +618,7 @@ function renderLibrary() {
     scoreUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') scoreUrlInput.blur(); });
     scoreUrlRow.append(scoreUrlLabel, scoreUrlInput);
     const scoreUploadRow = document.createElement('div');
-    scoreUploadRow.className = 'lib-audio-upload-row';
+    scoreUploadRow.className = 'lib-upload-row';
     const scoreUploadLabel = document.createElement('label');
     scoreUploadLabel.className = 'lib-upload-btn';
     const scoreUploadText = document.createElement('span');
@@ -591,7 +635,7 @@ function renderLibrary() {
         const url = await uploadScoreFile(file);
         library[i].scoreUrl = url;
         scoreUrlInput.value = url;
-        persist();
+        persistLibrary();
         showToast(`"${file.name}" uploaded`);
         scoreUploadText.textContent = '✓ Uploaded';
         setTimeout(() => { scoreUploadText.textContent = '⬆ Upload score / tab file'; }, 2500);
@@ -618,7 +662,7 @@ function renderLibrary() {
     const delBtn = document.createElement('button');
     delBtn.textContent = '🗑️ Delete from library';
     delBtn.className = 'lib-delete-btn';
-    delBtn.onclick = () => { library.splice(i, 1); persist(); renderLibrary(); };
+    delBtn.onclick = () => { library.splice(i, 1); persistLibrary(); renderLibrary(); };
     infoPanel.appendChild(delBtn);
 
     const controls = document.createElement('div');
@@ -696,18 +740,7 @@ function renderLibrary() {
       delete li.dataset.dragFromHandle;
       li.classList.remove('dragging');
       stopAutoScroll();
-      // Rebuild library from DOM (read inputs)
-      library = [...libraryList.children].map(row => ({
-        name: (row.querySelector('.lib-name')?.value || '').trim(),
-        time: formatTime(row.querySelector('.lib-time')?.value || ''),
-        tempo: (row.querySelector('.lib-tempo')?.value || '').trim(),
-        key: (row.querySelector('.lib-key')?.value || '').trim(),
-        lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim(),
-        notes: (row.querySelector('.lib-notes')?.value || '').trim(),
-            scoreUrl: (row.querySelector('.lib-score-url')?.value || '').trim()
-      }));
-      persist();
-      renderLibrary();
+      applyLibraryOrderFromDom();
     });
 
     // Touch/pen: long-press anywhere on the row (not on a button/input) to start drag
@@ -865,17 +898,18 @@ function endTouchDragLib(e) {
   if (libTouchDrag._move) window.removeEventListener('pointermove', libTouchDrag._move);
   libTouchDrag = { active: false, item: null, placeholder: null, grabOffsetY: 0, rectLeft: 0, width: 0 };
 
-  // Persist new order from DOM
-  library = [...libraryList.children].map(row => ({
-    name: (row.querySelector('.lib-name')?.value || '').trim(),
-    time: formatTime(row.querySelector('.lib-time')?.value || ''),
-    tempo: (row.querySelector('.lib-tempo')?.value || '').trim(),
-    key: (row.querySelector('.lib-key')?.value || '').trim(),
-    lyrics: (row.querySelector('.lib-lyrics')?.value || '').trim(),
-    notes: (row.querySelector('.lib-notes')?.value || '').trim(),
-    scoreUrl: (row.querySelector('.lib-score-url')?.value || '').trim()
-  }));
-  persist();
+  applyLibraryOrderFromDom();
+}
+
+// Reorder the library array to match the DOM row order after a drag.
+// Rows carry their original array index, so every song field survives
+// untouched — no rebuilding data from input values.
+function applyLibraryOrderFromDom() {
+  const prev = library;
+  library = [...libraryList.children]
+    .map(row => prev[parseInt(row.dataset.origIndex, 10)])
+    .filter(Boolean);
+  persistLibrary();
   renderLibrary();
 }
 
@@ -916,7 +950,7 @@ function doAddSong() {
   libSongName.value = '';
   libSongTime.value = '';
   if (libSongTempo) libSongTempo.value = '';
-  persist(); renderLibrary();
+  persistLibrary(); renderLibrary();
   // Close panel and show confirmation
   addSongPanel.classList.remove('open');
   saveToLibrary.classList.remove('active');
@@ -948,6 +982,21 @@ addSongConfirm.onclick = doAddSong;
 });
 
 /* ===== Setlist (read-only + draggable) ===== */
+
+// Remove a song from the current setlist with an Undo window
+function removeSongAt(index) {
+  const [removed] = songs.splice(index, 1);
+  if (!removed) return;
+  persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
+  showToast(`"${removed.name}" removed`, 4000, {
+    label: 'Undo',
+    onClick: () => {
+      songs.splice(Math.min(index, songs.length), 0, removed);
+      persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
+    }
+  });
+}
+
 function renderSetlist() {
   setlist.innerHTML = '';
   songs.forEach((song, i) => {
@@ -960,10 +1009,9 @@ function renderSetlist() {
     item.querySelector('.song-tempo').textContent = song.tempo || '';
     item.dataset.origIndex = i;
 
-    // delete ONLY from setlist
+    // delete ONLY from setlist (undoable via toast)
     item.querySelector('.delete').onclick = () => {
-      songs.splice(i, 1);
-      persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
+      removeSongAt(i);
     };
 
     // drag handlers
@@ -1221,11 +1269,7 @@ setlist.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown') { e.preventDefault(); move(index, index + 1); }
   if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
-    songs.splice(index, 1);
-    persist();
-    renderSetlist();
-    updateTotal();
-    updateSetlistTitle();
+    removeSongAt(index);
     const li = setlist.children[Math.min(index, songs.length - 1)];
     if (li) li.focus();
   }
@@ -1252,7 +1296,7 @@ function renderDropdown() {
       currentSetlist = name;
       localStorage.setItem('lastSetlist', name);
       songs = Array.isArray(allSetlists[name]) ? [...allSetlists[name]] : [];
-      persist(); renderSetlist(); updateTotal(); updateSetlistTitle();
+      renderSetlist(); updateTotal(); updateSetlistTitle();
       toggleDropdown(false);
     };
 
@@ -1404,10 +1448,14 @@ if (dupSetlistBtn) {
 window.addEventListener('hashchange', () => {
   const name = decodeURIComponent((window.location.hash || '').slice(1));
   if (!name) return;
-  if (!allSetlists[name]) allSetlists[name] = [];
+  if (!allSetlists[name]) {
+    showToast(`Setlist "${name}" not found.`);
+    updateSetlistTitle(); // restores the hash of the current setlist
+    return;
+  }
   currentSetlist = name;
-  songs = Array.isArray(allSetlists[name]) ? [...allSetlists[name]] : [];
-  persist();
+  localStorage.setItem('lastSetlist', name);
+  songs = [...allSetlists[name]];
   renderSetlist();
   renderDropdown();
   updateTotal();
@@ -1455,128 +1503,69 @@ printBtn.onclick = () => {
     <div id="printContent">${html}</div>
   </body></html>`);
   win.document.close();
+  // Print exactly once whether onload or the fallback timer fires first
+  let printed = false;
+  const doPrint = () => {
+    if (printed || win.closed) return;
+    printed = true;
+    win.focus();
+    win.print();
+  };
   // onload fires after document.close() — more reliable than setTimeout on iOS Safari
-  win.onload = () => { win.focus(); win.print(); win.onafterprint = () => win.close(); };
+  win.onload = () => { doPrint(); win.onafterprint = () => win.close(); };
   // Fallback for browsers where onload may not fire on document.write content
-  setTimeout(() => { if (win && !win.closed) { win.focus(); win.print(); } }, 1200);
+  setTimeout(doPrint, 1200);
 };
 
 
-shareBtn.onclick = async () => {
+shareBtn.onclick = () => {
   // Ensure URL/hash reflects the current set before composing link
   updateSetlistTitle();
   // Build shareable text: Title line with total time, then song names
   const totalSecs = songs.reduce((acc, s) => acc + parseTime(s.time), 0);
   const mm = Math.floor(totalSecs / 60).toString();
   const ss = String(totalSecs % 60).padStart(2, '0');
-  const headerLine = `${currentSetlist} — ${mm}:${ss}`;
+  const headerLine = `${currentSetlist} \u2014 ${mm}:${ss}`;
   const bodyLines = songs.map(s => s.name).join('\n');
   const text = bodyLines ? `${headerLine}\n\n${bodyLines}` : headerLine;
   const link = `${window.location.origin}${window.location.pathname}#${encodeURIComponent(currentSetlist)}`;
 
-  try {
-    // Remove any previous menu
-    let oldMenu = document.getElementById('shareMenu');
-    if (oldMenu) oldMenu.remove();
+  // Remove any previous menu, then build a fresh one
+  const oldMenu = document.getElementById('shareMenu');
+  if (oldMenu) oldMenu.remove();
+  const menu = document.createElement('div');
+  menu.id = 'shareMenu';
 
-    // Create share menu
-    const menu = document.createElement('div');
-    menu.id = 'shareMenu';
-    menu.style.position = 'fixed';
-    menu.style.bottom = '3.5rem';
-    menu.style.left = '50%';
-    menu.style.transform = 'translateX(-50%)';
-    menu.style.background = '#222';
-    menu.style.color = '#fff';
-    menu.style.padding = '0.7rem 1.2rem';
-    menu.style.borderRadius = '10px';
-    menu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-    menu.style.zIndex = '9999';
-    menu.style.display = 'flex';
-    menu.style.flexDirection = 'column';
-    menu.style.gap = '0.5rem';
+  const addOption = (label, className, onClick) => {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.className = className;
+    btn.onclick = async () => { await onClick(); menu.remove(); };
+    menu.appendChild(btn);
+  };
 
-    // Option 1: Share via Web Share API
-    if (navigator.share) {
-      const shareBtn = document.createElement('button');
-      shareBtn.textContent = 'Share via device...';
-      shareBtn.style.background = '#ff2b6a';
-      shareBtn.style.color = '#fff';
-      shareBtn.style.border = 'none';
-      shareBtn.style.borderRadius = '6px';
-      shareBtn.style.padding = '0.5rem 1rem';
-      shareBtn.style.cursor = 'pointer';
-      shareBtn.onclick = async () => {
-        try {
-          // Include the deep link so recipients open the exact setlist
-          await navigator.share({ title: 'Setlist', text, url: link });
-          showToast('Setlist shared!');
-        } catch {
-          showToast('Share canceled or failed.');
-        }
-        menu.remove();
-      };
-      menu.appendChild(shareBtn);
-    }
-
-    // Option 2: Copy setlist text
-    const copyTextBtn = document.createElement('button');
-    copyTextBtn.textContent = 'Copy setlist text';
-    copyTextBtn.style.background = '#444';
-    copyTextBtn.style.color = '#fff';
-    copyTextBtn.style.border = 'none';
-    copyTextBtn.style.borderRadius = '6px';
-    copyTextBtn.style.padding = '0.5rem 1rem';
-    copyTextBtn.style.cursor = 'pointer';
-    copyTextBtn.onclick = async () => {
+  if (navigator.share) {
+    addOption('Share via device\u2026', 'share-option share-option--primary', async () => {
       try {
-        await navigator.clipboard.writeText(text);
-        showToast('Setlist copied to clipboard!');
+        // Include the deep link so recipients open the exact setlist
+        await navigator.share({ title: 'Setlist', text, url: link });
+        showToast('Setlist shared!');
       } catch {
-        showToast('Clipboard blocked by browser.');
+        showToast('Share canceled or failed.');
       }
-      menu.remove();
-    };
-    menu.appendChild(copyTextBtn);
-
-    // Option 3: Copy setlist link
-    const copyLinkBtn = document.createElement('button');
-    copyLinkBtn.textContent = 'Copy setlist link';
-    copyLinkBtn.style.background = '#444';
-    copyLinkBtn.style.color = '#fff';
-    copyLinkBtn.style.border = 'none';
-    copyLinkBtn.style.borderRadius = '6px';
-    copyLinkBtn.style.padding = '0.5rem 1rem';
-    copyLinkBtn.style.cursor = 'pointer';
-    copyLinkBtn.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(link);
-        showToast('Setlist link copied!');
-      } catch {
-        showToast('Clipboard blocked by browser.');
-      }
-      menu.remove();
-    };
-    menu.appendChild(copyLinkBtn);
-
-    // Option 4: Cancel
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.background = '#333';
-    cancelBtn.style.color = '#fff';
-    cancelBtn.style.border = 'none';
-    cancelBtn.style.borderRadius = '6px';
-    cancelBtn.style.padding = '0.5rem 1rem';
-    cancelBtn.style.cursor = 'pointer';
-    cancelBtn.onclick = () => menu.remove();
-    menu.appendChild(cancelBtn);
-
-    document.body.appendChild(menu);
-
-  } catch (err) {
-    showToast('Share menu failed to open.');
-    console.error('Share menu error:', err);
+    });
   }
+  addOption('Copy setlist text', 'share-option', async () => {
+    try { await navigator.clipboard.writeText(text); showToast('Setlist copied to clipboard!'); }
+    catch { showToast('Clipboard blocked by browser.'); }
+  });
+  addOption('Copy setlist link', 'share-option', async () => {
+    try { await navigator.clipboard.writeText(link); showToast('Setlist link copied!'); }
+    catch { showToast('Clipboard blocked by browser.'); }
+  });
+  addOption('Cancel', 'share-option share-option--cancel', () => {});
+
+  document.body.appendChild(menu);
 };
 
 /* ===== Init ===== */
